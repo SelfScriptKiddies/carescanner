@@ -29,17 +29,10 @@ impl Mode for TcpScan {
             TcpStream::connect(format!("{}:{}", target.ip, target.port))
         ).await;
 
-        // Timeout error
-        if let Err(_) = stream {
-            return PortStatus::Filtered;
+        match stream {
+            Ok(Ok(_stream)) => PortStatus::Open,
+            Ok(Err(_closed_error)) => PortStatus::Closed,
+            Err(_timeout_error) => PortStatus::Filtered,
         }
-
-        // Non-timeout error, so connection failed
-        if let Err(_) = stream.unwrap() {
-            return PortStatus::Closed;
-        }  
-
-        // Successfully opened connection
-        PortStatus::Open
     }
 }
