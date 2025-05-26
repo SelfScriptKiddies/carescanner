@@ -1,8 +1,9 @@
 use carescanner::configuration::Config;
 use clap::Parser;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let config = Config::parse();
     println!("{:?}", config);
-    println!("Hello, world!");
+    carescanner::run(config).await;
 }
