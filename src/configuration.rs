@@ -40,18 +40,21 @@ pub struct Config {
     #[arg(short, long, default_value = "info", help_heading = "Logging options", help = "Logging level")]
     pub logging_level: LoggingLevel,
 
-    // Scan types
-    #[arg(short, long, help_heading = "Scan options", help = "Scan options", default_value = "tcp")]
-    pub scan_type: ScanType,
+    // Scan options
+    #[arg(long, help_heading = "Scan options", help = "Targets to scan, ranges and single ips separated by comma", value_name = "TARGETS_LIST")]
+    pub targets: Vec<String>,
 
-    #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]
-    pub resume_from: Option<String>,
+    #[arg(long, help_heading = "Scan options", help = "Ports to scan, ranges and single ports separated by comma", value_name = "PORTS_LIST", default_value = "1-65535")]
+    pub ports: PortList,
 
     #[arg(long, help_heading = "Scan options", help = "Proxies to use for the scan", value_name = "PROXIES_LIST")]
     pub proxies: Option<Vec<String>>,
 
-    #[arg(long, help_heading = "Scan options", help = "Ports to scan, ranges and single ports separated by comma", value_name = "PORTS_LIST")]
-    pub ports: Option<PortList>,
+    #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]
+    pub resume_from: Option<String>,
+
+    #[arg(short, long, help_heading = "Scan options", help = "Scan options", default_value = "tcp")]
+    pub scan_type: ScanType,
 
     // Speed options
     #[arg(short, long, help_heading = "Speed options", help = "Overall packet rate limit")]
@@ -65,6 +68,9 @@ pub struct Config {
 
     #[arg(long, help_heading = "Speed options", help = "Maximum ports scanning at a time")]
     pub max_concurrent_ports: Option<u32>,
+
+    #[arg(long, help_heading = "Speed options", help = "Timeout for the scan", default_value = "1")]
+    pub timeout: u64,
 
     // Output options
     #[arg(short, long, help_heading = "Output options")]
