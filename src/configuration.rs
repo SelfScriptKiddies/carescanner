@@ -1,5 +1,8 @@
+mod target_parsing;
 mod port_parsing;
 
+
+pub use target_parsing::TargetList;
 pub use port_parsing::PortList;
 use clap::Parser;
 
@@ -41,13 +44,13 @@ pub struct Config {
     pub logging_level: LoggingLevel,
 
     // Scan options
-    #[arg(long, help_heading = "Scan options", help = "Targets to scan, ranges and single ips separated by comma", value_name = "TARGETS_LIST")]
-    pub targets: Vec<String>,
+    #[arg(long, help_heading = "Scan options", help = "Targets to scan (e.g., 192.168.1.0/24, scanme.nmap.org), comma-separated, or from a file (e.g., file:targets.txt)", value_name = "TARGETS_LIST", value_parser = target_parsing::parse_target_input)]
+    pub targets: TargetList,
 
-    #[arg(long, help_heading = "Scan options", help = "Ports to scan, ranges and single ports separated by comma", value_name = "PORTS_LIST", default_value = "1-65535")]
+    #[arg(long, help_heading = "Scan options", help = "Ports to scan (e.g., 80,443, 22-25, file:ports.txt), comma-separated, or from a file", value_name = "PORTS_LIST", default_value = "1-65535")]
     pub ports: PortList,
 
-    #[arg(long, help_heading = "Scan options", help = "Proxies to use for the scan", value_name = "PROXIES_LIST")]
+    #[arg(long, help_heading = "Scan options", help = "Proxies to use for the scan (e.g., socks5://localhost:9050, http://user:pass@host:port), comma-separated, or from a file (e.g., file:proxies.txt)", value_name = "PROXIES_LIST")]
     pub proxies: Option<Vec<String>>,
 
     #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]

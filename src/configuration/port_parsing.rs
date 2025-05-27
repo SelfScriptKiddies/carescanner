@@ -1,6 +1,40 @@
-pub fn parse_ports_string_to_vec(s: &str) -> Result<Vec<u16>, String> { 
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
+
+fn get_ports_from_file(filename: &str) -> Result<Vec<String>, String> {
+    let actual_file_path = filename.trim();
+    if actual_file_path.is_empty() {
+        return Err("Empty file path for ports specified with \'file:\' prefix.".to_string());
+    }
+
+    let path = Path::new(filename);
+    let file = File::open(path).map_err(|e| format!("Failed to open file '{}': {}", actual_file_path, e))?;
+    let reader = BufReader::new(file);
+    let lines: Vec<String> = reader.lines().collect::<Result<_, std::io::Error>>().map_err(|e| e.to_string())?;
+
+    let mut ports = Vec::new();
+    
+    for part in lines.iter() {
+        let trimmed_part = part.trim();
+        if !trimmed_part.is_empty() {
+            ports.push(trimmed_part.parse().map_err(|e| format!("Failed to parse port \'{}\': {}", trimmed_part, e))?);
+        }
+    }
+
+    Ok(ports)
+}
+
+pub fn parse_ports_string_to_vec(s: &str) -> Result<Vec<u16>, String> {
     let mut ports_flat_vec = Vec::new();
-    for part in s.split(',') {
+
+    let parts_to_process = match s.trim().strip_prefix("file:") {
+        Some(file_path) => get_ports_from_file(file_path)?,
+        None => s.split(',').map(|part| part.trim().to_string()).collect(),
+    };
+
+
+    for part in parts_to_process {
         if part.contains('-') {
             let mut iter = part.splitn(2, '-'); 
             let start_str = iter.next().ok_or_else(|| format!("Invalid range format: {}", part))?;
@@ -14,14 +48,18 @@ pub fn parse_ports_string_to_vec(s: &str) -> Result<Vec<u16>, String> {
             }
 
             for port in start..=end {
-                ports_flat_vec.push(port);
+                if !ports_flat_vec.contains(&port) {
+                    ports_flat_vec.push(port);
+                }
             }
         } else {
             let port: u16 = part.trim().parse().map_err(|e| format!("Failed to parse port '{}': {}", part, e))?;
-            ports_flat_vec.push(port);
+            if !ports_flat_vec.contains(&port) {
+                ports_flat_vec.push(port);
+            }
         }
     }
-    ports_flat_vec.dedup();
+    ports_flat_vec.sort_unstable();
     Ok(ports_flat_vec)
 }
 

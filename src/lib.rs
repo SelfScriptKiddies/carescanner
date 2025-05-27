@@ -1,5 +1,6 @@
 pub mod configuration;
 pub mod modes;
+
 use crate::configuration::{Config, ScanType};
 use crate::modes::{Target, Mode};
 use std::sync::Arc;
@@ -34,7 +35,7 @@ pub async fn start_mass_scan(
     let hosts = config.targets.clone();
     let ports = config.ports.clone().vec();
     let targets: Vec<Target> = hosts
-        .iter()
+        .into_iter()
         .flat_map(|host_ip| {
             ports.iter().map(move |port_num| Target {
                 ip: host_ip.clone(),
