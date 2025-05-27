@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use ipnetwork::IpNetwork;
 
 #[derive(Debug, Clone)]
 pub struct TargetList {
@@ -38,29 +39,43 @@ impl TargetList {
     }
 }
 
-fn read_lines_from_file(filename: &str) -> std::io::Result<Vec<String>> {
-    let path = Path::new(filename);
-    let file = File::open(path)?;
+fn read_addresses_from_file(filepath: &str) -> Result<Vec<String>, String> {
+    let filepath = filepath.trim();
+    if filepath.is_empty() {
+        return Err("Empty file path for targets specified with 'file:' prefix.".into());
+    }
+    let path = Path::new(filepath);
+    let file = File::open(path).map_err(|e| format!("Failed to open file '{}': {}", filepath, e))?;
     let reader = BufReader::new(file);
-    reader.lines().collect()
+    let lines = reader.lines().collect::<Result<Vec<String>, std::io::Error>>().map_err(|e| format!("Failed to read lines from file '{}': {}", filepath, e))?;
+    Ok(lines.into_iter().filter(|line| !line.trim().is_empty()).collect())
 }
 
 pub fn parse_target_input(s: &str) -> Result<TargetList, String> {
     let input = s.trim();
-    if let Some(file_path) = input.strip_prefix("file:") {
-        let file_path = file_path.trim();
-        if file_path.is_empty() {
-            return Err("Empty file path for targets specified with 'file:' prefix.".into());
+    let addresses: Vec<String> = match input.strip_prefix("file:") {
+        Some(filepath) => read_addresses_from_file(filepath)?,
+        None => {
+            if input.is_empty() {
+                return Err("No target specified".into());
+            } else {
+                input.split(',').map(|s| s.trim().to_string()).collect()
+            }
         }
-        match read_lines_from_file(file_path) {
-            Ok(lines) => Ok(TargetList { targets: lines.into_iter().filter(|line| !line.trim().is_empty()).collect() }),
-            Err(e) => Err(format!("Failed to read targets from file '{}': {}", file_path, e).into()),
-        }
-    } else {
-        if input.is_empty() {
-            Ok(TargetList { targets: Vec::new() })
+    };
+
+    // Expand CIDR notation to individual IP addresses
+    let mut expanded_addresses = Vec::new();
+    for addr in addresses {
+        if addr.contains('/') {
+            let cidr = addr.parse::<IpNetwork>().map_err(|e| format!("Invalid CIDR notation '{}': {}", addr, e))?;
+            for ip in cidr.iter() {
+                expanded_addresses.push(ip.to_string());
+            }
         } else {
-            Ok(TargetList { targets: vec![input.to_string()] })
+            expanded_addresses.push(addr);
         }
     }
+    
+    Ok(TargetList { targets: expanded_addresses })
 } 
