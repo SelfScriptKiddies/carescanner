@@ -67,21 +67,21 @@ pub async fn start_mass_scan(
             let results_clone = results.clone(); // Clone target for the async block
             let mut ui_clone = ui.clone();
             async move {
-                // Wait for the rate limiter
                 limiter_clone.until_ready().await;
 
                 let status = scanner_clone.scan(&target_to_scan).await;
                 
-                // Process the result
-                // For a real application, you might send this to another task
-                // via an mpsc channel for aggregation or immediate reporting.
                 match status {
-                    PortStatus::Open => ui_clone.print_progress_bar(format!("Host: {}, Port: {}, Status: {:?}", target_to_scan.ip, target_to_scan.port, status)),
+                    PortStatus::Open | PortStatus::Closed => {
+                        ui_clone.print_progress_bar(format!("Host: {}, Port: {}, Status: {:?}", target_to_scan.ip, target_to_scan.port, status));
+                        let mut results_guard = results_clone.lock().await;
+                        results_guard.push((target_to_scan, status));
+                    }
                     _ => (),
                 }
-                let mut results_guard = results_clone.lock().await;
-                results_guard.push((target_to_scan, status));
+                
                 ui_clone.increment_progress_bar(1);
+                
             }
         })
         .await;
