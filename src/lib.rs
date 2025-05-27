@@ -17,51 +17,63 @@ use crate::modes::PortStatus;
 use rand::seq::SliceRandom;
 use rand::rng;
 use crate::strategy::round_robin::RoundRobinStrategy;
-use crate::strategy::ScanStrategy;
+use crate::strategy::ScanStrategyTrait;
 use crate::ui::Ui;
+use std::unimplemented;
 
-pub async fn run(config: Config) {
+pub async fn run(mut config: Config) {
     let mode = match config.scan_type {
         ScanType::Tcp => modes::fulltcp::TcpScan::new(&config),
-        _ => panic!("Unsupported scan type"),
+        _ => unimplemented!("Unimplemented scan type"),
     };
 
-    start_mass_scan(Arc::new(config), 1000, 1000).await;
+    if config.shuffle_ports {
+        config.ports.ports.shuffle(&mut rng());
+    }
+
+    start_mass_scan(Arc::new(config), Arc::new(mode)).await;
 }
 
 
 pub async fn start_mass_scan(
     config: Arc<Config>,
-    max_concurrent_scans: usize,
-    scans_per_second: u32,
+    mode: Arc<dyn Mode>
 ) {
     let mut ui = Ui::new(&config);
     ui.print_banner();
 
     let hosts = config.targets.clone();
-    let mut ports = config.ports.clone();
-    if config.shuffle_ports {
-        ports.ports.shuffle(&mut rng());
-    }
+    let mut ports = config.ports.clone();    
     let number_of_targets = hosts.len() * ports.len();
-    let targets = RoundRobinStrategy::create_targets(&hosts, &ports);
+    let targets = config.scan_strategy.create_targets(&config.targets, &config.ports);
 
-    let scanner = Arc::new(TcpScan::new(&config));
-    ui.init_progress_bar(number_of_targets as u64);
-    let rate_limiter_quota = NonZeroU32::new(scans_per_second).unwrap_or_else(|| NonZeroU32::new(1).unwrap());
-    let limiter = Arc::new(RateLimiter::direct(Quota::per_second(rate_limiter_quota)));
+    let scanner = mode;
+    // Default value
+    let mut ratelimit: u64 = 1000;
+
+    if let Some(config_ratelimit) = config.ratelimit {
+        ratelimit = config_ratelimit;
+    } else if let Some(ratelimit_per_host) = config.ratelimit_per_host {
+        // TODO: we must think about ratelimit per any host
+        ratelimit = ratelimit_per_host * hosts.len() as u64;
+    } else if let Some(maximum_scan_time) = config.maximum_scan_time {
+        unimplemented!("Maximum scan time is not implemented");
+    }
+
+    let limiter = Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(ratelimit as u32).unwrap())));
 
     info!(
         "Starting scan for {} targets with {} concurrent scans and {} scans/sec limit.",
         number_of_targets,
-        max_concurrent_scans,
-        scans_per_second
+        config.max_concurrent_ports,
+        ratelimit
     );
 
     let results = Arc::new(Mutex::new(Vec::new())); // Simple way to collect results
 
+    ui.init_progress_bar(number_of_targets as u64);
     stream::iter(targets)
-        .for_each_concurrent(max_concurrent_scans, |target_to_scan| {
+        .for_each_concurrent(config.max_concurrent_ports as usize, |target_to_scan| {
             let scanner_clone = Arc::clone(&scanner);
             let limiter_clone = Arc::clone(&limiter);
             let results_clone = results.clone(); // Clone target for the async block
@@ -72,7 +84,7 @@ pub async fn start_mass_scan(
                 let status = scanner_clone.scan(&target_to_scan).await;
                 
                 match status {
-                    PortStatus::Open | PortStatus::Closed => {
+                    PortStatus::Open => {
                         ui_clone.print_progress_bar(format!("Host: {}, Port: {}, Status: {:?}", target_to_scan.ip, target_to_scan.port, status));
                         let mut results_guard = results_clone.lock().await;
                         results_guard.push((target_to_scan, status));

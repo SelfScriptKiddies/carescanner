@@ -3,6 +3,7 @@ use tokio::net::TcpStream;
 use tokio::time::Duration;
 use crate::modes::{Mode, Target, PortStatus};
 use crate::configuration::Config;
+use async_trait::async_trait;
 
 pub struct TcpScan {
     pub name: String,
@@ -18,6 +19,7 @@ impl TcpScan {
     }
 }
 
+#[async_trait]
 impl Mode for TcpScan {
     fn name(&self) -> &str {
         &self.name

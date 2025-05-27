@@ -1,6 +1,8 @@
 // module for the different modes of the scan
 pub mod fulltcp;
 
+use async_trait::async_trait;
+
 #[derive(Debug, Clone)]
 pub struct Target {
     pub ip: String,
@@ -14,7 +16,8 @@ pub enum PortStatus {
     Closed
 }
 
-pub trait Mode {
+#[async_trait]
+pub trait Mode: Send + Sync {
     fn name(&self) -> &str;
-    fn scan(&self, target: &Target) -> impl std::future::Future<Output = PortStatus> + Send;
+    async fn scan(&self, target: &Target) -> PortStatus;
 }

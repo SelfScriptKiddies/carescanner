@@ -1,13 +1,19 @@
 pub struct RoundRobinStrategy;
 
-use super::ScanStrategy;
+use super::ScanStrategyTrait;
 use crate::modes::Target;
 use crate::configuration::TargetList;
 use crate::configuration::PortList;
 
-impl ScanStrategy for RoundRobinStrategy {
-    fn create_targets(targetlist: &TargetList, portlist: &PortList) -> impl Iterator<Item = Target> {
-        portlist.ports.iter().flat_map(|port| targetlist.targets.iter().map(move |target| Target { ip: target.clone(), port: *port }))
+impl ScanStrategyTrait for RoundRobinStrategy {
+    fn create_targets<'a>(
+        &'a self,
+        hosts: &'a TargetList,
+        ports: &'a PortList,
+    ) -> Box<dyn Iterator<Item = Target> + 'a> {
+        Box::new(
+            ports.ports.iter().flat_map(move |port| hosts.targets.iter().map(move |target| Target { ip: target.clone(), port: *port }))
+        )
     }
 }
 
@@ -20,7 +26,7 @@ mod tests {
         let targets = TargetList { targets: vec!["192.168.1.1".to_string(), "192.168.1.2".to_string()] };
         let ports = PortList { ports: vec![80, 443] };
 
-        let targets = RoundRobinStrategy::create_targets(&targets, &ports);
+        let targets = RoundRobinStrategy.create_targets(&targets, &ports);
         let targets_vec = targets.collect::<Vec<Target>>();
                 
         assert_eq!(targets_vec.len(), 4);

@@ -86,19 +86,19 @@ pub struct Config {
     pub scan_type: ScanType,
 
     // Speed options
-    #[arg(short, long, help_heading = "Speed options", help = "Overall packet rate limit")]
-    pub ratelimit: Option<u32>,
+    #[arg(short, long, help_heading = "Speed options", help = "Overall packet rate limit", conflicts_with_all = ["ratelimit_per_host", "maximum_scan_time"])]
+    pub ratelimit: Option<u64>,
 
-    #[arg(long, help_heading = "Speed options", help = "Packet rate limit per host")]
-    pub ratelimit_per_host: Option<u32>,
+    #[arg(long, help_heading = "Speed options", help = "Packet rate limit per host", conflicts_with_all = ["ratelimit", "maximum_scan_time"])]
+    pub ratelimit_per_host: Option<u64>,
 
     #[arg(short='M', long, help_heading = "Speed options", help = "Maximum scan time", conflicts_with_all = ["ratelimit", "ratelimit_per_host"])]
-    pub maximum_scan_time: Option<u32>,
+    pub maximum_scan_time: Option<u64>,
 
-    #[arg(long, help_heading = "Speed options", help = "Maximum ports scanning at a time")]
-    pub max_concurrent_ports: Option<u32>,
+    #[arg(long, help_heading = "Speed options", help = "Maximum ports scanning at a time", default_value = "1000")]
+    pub max_concurrent_ports: u64,
 
-    #[arg(long, help_heading = "Speed options", help = "Timeout for the scan", default_value = "1")]
+    #[arg(long, help_heading = "Speed options", help = "Timeout for the scan", default_value = "3")]
     pub timeout: u64,
 
     // TUI options
