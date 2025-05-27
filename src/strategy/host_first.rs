@@ -1,7 +1,7 @@
-struct HostFirstStrategy;
-
 use super::*;
 use crate::modes::Target;
+
+struct HostFirstStrategy;
 
 impl ScanStrategy for HostFirstStrategy {
     fn create_targets(targetlist: &TargetList, portlist: &PortList) -> impl Iterator<Item = Target> {

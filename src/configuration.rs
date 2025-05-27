@@ -64,10 +64,10 @@ pub struct Config {
     pub logging_level: LoggingLevel,
 
     // Scan options
-    #[arg(long, help_heading = "Scan options", help = "Targets to scan (e.g., 192.168.1.0/24, scanme.nmap.org), comma-separated, or from a file (e.g., file:targets.txt)", value_name = "TARGETS_LIST", value_parser = target_parsing::parse_target_input)]
+    #[arg(long, help_heading = "Scan options", alias = "target", help = "Targets to scan (e.g., 192.168.1.0/24, scanme.nmap.org), comma-separated, or from a file (e.g., file:targets.txt)", value_name = "TARGETS_LIST", value_parser = target_parsing::parse_target_input)]
     pub targets: TargetList,
 
-    #[arg(long, help_heading = "Scan options", help = "Ports to scan (e.g., 80,443, 22-25, file:ports.txt), comma-separated, or from a file", value_name = "PORTS_LIST", default_value = "1-65535")]
+    #[arg(long, help_heading = "Scan options", alias = "port", help = "Ports to scan (e.g., 80,443, 22-25, file:ports.txt), comma-separated, or from a file", value_name = "PORTS_LIST", default_value = "1-65535")]
     pub ports: PortList,
 
     #[arg(long, help_heading = "Scan options", help = "Shuffle ports", value_name = "SHUFFLE_PORTS", default_value = "false")]
@@ -100,6 +100,16 @@ pub struct Config {
 
     #[arg(long, help_heading = "Speed options", help = "Timeout for the scan", default_value = "1")]
     pub timeout: u64,
+
+    // TUI options
+    #[arg(long, help_heading = "TUI options", help = "Disable all TUI elements")]
+    pub disable_all: bool,
+
+    #[arg(long, help_heading = "TUI options", help = "Disable progress bar")]
+    pub disable_progress_bar: bool,
+
+    #[arg(long, help_heading = "TUI options", help = "Disable banner")]
+    pub disable_banner: bool,
 
     // Output options
     #[arg(short, long, help_heading = "Output options")]
