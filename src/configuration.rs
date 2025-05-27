@@ -23,12 +23,32 @@ pub enum FormatScan {
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
-pub enum LoggingLevel { 
+pub enum LoggingLevel {
+    Off, 
     Trace,
     Debug,
     Info,
     Warning,
     Error,
+}
+
+impl Into<log::LevelFilter> for LoggingLevel {
+    fn into(self) -> log::LevelFilter {
+        match self {
+            LoggingLevel::Off => log::LevelFilter::Off,
+            LoggingLevel::Trace => log::LevelFilter::Trace,
+            LoggingLevel::Debug => log::LevelFilter::Debug,
+            LoggingLevel::Info => log::LevelFilter::Info,
+            LoggingLevel::Warning => log::LevelFilter::Warn,
+            LoggingLevel::Error => log::LevelFilter::Error,
+        }
+    }
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum ScanStrategy {
+    HostFirst,
+    RoundRobin,
 }
 
 #[derive(Debug, Clone)]
@@ -50,11 +70,17 @@ pub struct Config {
     #[arg(long, help_heading = "Scan options", help = "Ports to scan (e.g., 80,443, 22-25, file:ports.txt), comma-separated, or from a file", value_name = "PORTS_LIST", default_value = "1-65535")]
     pub ports: PortList,
 
+    #[arg(long, help_heading = "Scan options", help = "Shuffle ports", value_name = "SHUFFLE_PORTS", default_value = "false")]
+    pub shuffle_ports: bool,
+
     #[arg(long, help_heading = "Scan options", help = "Proxies to use for the scan (e.g., socks5://localhost:9050, http://user:pass@host:port), comma-separated, or from a file (e.g., file:proxies.txt)", value_name = "PROXIES_LIST")]
     pub proxies: Option<Vec<String>>,
 
     #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]
     pub resume_from: Option<String>,
+
+    #[arg(long, help_heading = "Scan options", help = "Scan strategy", value_name = "SCAN_STRATEGY", default_value = "round-robin")]
+    pub scan_strategy: ScanStrategy,
 
     #[arg(short, long, help_heading = "Scan options", help = "Scan options", default_value = "tcp")]
     pub scan_type: ScanType,

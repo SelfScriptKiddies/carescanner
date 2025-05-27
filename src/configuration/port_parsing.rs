@@ -64,19 +64,21 @@ pub fn parse_ports_string_to_vec(s: &str) -> Result<Vec<u16>, String> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PortList(pub Vec<u16>);
+pub struct PortList {
+    pub ports: Vec<u16>
+}
 
 impl std::str::FromStr for PortList {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let ports = parse_ports_string_to_vec(s)?;
-        Ok(PortList(ports))
+        Ok(PortList { ports })
     }
 }
 
 impl Into<Vec<u16>> for PortList {
     fn into(self) -> Vec<u16> {
-        self.0
+        self.ports
     }
 }
 
@@ -84,16 +86,16 @@ impl IntoIterator for PortList {
     type Item = u16;
     type IntoIter = std::vec::IntoIter<u16>;
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.ports.into_iter()
     }
 }
 
 impl PortList {
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.ports.len()
     }
 
     pub fn vec(&self) -> Vec<u16> {
-        self.0.clone()
+        self.ports.clone()
     }
 }

@@ -1,15 +1,22 @@
 pub mod configuration;
 pub mod modes;
+pub mod strategy;
 
 use crate::configuration::{Config, ScanType};
 use crate::modes::{Target, Mode};
 use std::sync::Arc;
 use futures::stream::{self, StreamExt};
 use governor::{Quota, RateLimiter};
+use log::info;
+use indicatif::ProgressBar;
 use std::num::NonZeroU32;   
 use crate::modes::fulltcp::TcpScan;
 use tokio::sync::Mutex;
 use crate::modes::PortStatus;
+use rand::seq::SliceRandom;
+use rand::rng;
+use crate::strategy::round_robin::RoundRobinStrategy;
+use crate::strategy::ScanStrategy;
 
 pub async fn run(config: Config) {
     let mode = match config.scan_type {
@@ -17,12 +24,6 @@ pub async fn run(config: Config) {
         _ => panic!("Unsupported scan type"),
     };
 
-    // for port in config.ports {
-    //     for target in config.targets.clone() {
-    //         let results = mode.scan(&Target { ip: target, port: port }).await;
-    //         println!("{:?}", results);
-    //     }
-    // }
     start_mass_scan(Arc::new(config), 1000, 1000).await;
 }
 
@@ -33,25 +34,21 @@ pub async fn start_mass_scan(
     scans_per_second: u32,
 ) {
     let hosts = config.targets.clone();
-    let ports = config.ports.clone().vec();
-    let targets: Vec<Target> = hosts
-        .into_iter()
-        .flat_map(|host_ip| {
-            ports.iter().map(move |port_num| Target {
-                ip: host_ip.clone(),
-                port: *port_num,
-            })
-        })
-        .collect();
+    let mut ports = config.ports.clone();
+    if config.shuffle_ports {
+        ports.ports.shuffle(&mut rng());
+    }
+    let number_of_targets = hosts.len() * ports.len();
+    let targets = RoundRobinStrategy::create_targets(&hosts, &ports);
 
     let scanner = Arc::new(TcpScan::new(&config));
-
+    let pb = ProgressBar::new(number_of_targets as u64);
     let rate_limiter_quota = NonZeroU32::new(scans_per_second).unwrap_or_else(|| NonZeroU32::new(1).unwrap());
     let limiter = Arc::new(RateLimiter::direct(Quota::per_second(rate_limiter_quota)));
 
-    println!(
+    info!(
         "Starting scan for {} targets with {} concurrent scans and {} scans/sec limit.",
-        targets.len(),
+        number_of_targets,
         max_concurrent_scans,
         scans_per_second
     );
@@ -63,7 +60,7 @@ pub async fn start_mass_scan(
             let scanner_clone = Arc::clone(&scanner);
             let limiter_clone = Arc::clone(&limiter);
             let results_clone = results.clone(); // Clone target for the async block
-
+            let pb_clone = pb.clone();
             async move {
                 // Wait for the rate limiter
                 limiter_clone.until_ready().await;
@@ -74,11 +71,12 @@ pub async fn start_mass_scan(
                 // For a real application, you might send this to another task
                 // via an mpsc channel for aggregation or immediate reporting.
                 match status {
-                    PortStatus::Open => println!("Host: {}, Port: {}, Status: {:?}", target_to_scan.ip, target_to_scan.port, status),
+                    PortStatus::Open => pb_clone.println(format!("Host: {}, Port: {}, Status: {:?}", target_to_scan.ip, target_to_scan.port, status)),
                     _ => (),
                 }
                 let mut results_guard = results_clone.lock().await;
                 results_guard.push((target_to_scan, status));
+                pb_clone.inc(1);
             }
         })
         .await;
@@ -88,6 +86,6 @@ pub async fn start_mass_scan(
     // For robust result collection, consider using `tokio::sync::mpsc` channel
     // to send results from each task to a single collector task, or a `Mutex<Vec<...>>`.
 
-    println!("Scanning complete. Processed {} results.", results.lock().await.len());
+    info!("Scanning complete. Processed {} results.", results.lock().await.len());
     // Further process `results` here
 }
