@@ -27,7 +27,7 @@ fn get_ports_from_file(filename: &str) -> Result<Vec<String>, String> {
 }
 
 pub fn parse_ports_string_to_vec(s: &str) -> Result<Vec<u16>, String> {
-    let mut ports_flat_vec = Vec::new();
+    let mut ports_flat_vec = Vec::with_capacity(65535);
 
     let parts_to_process = match s.trim().strip_prefix("file:") {
         Some(file_path) => get_ports_from_file(file_path)?,
@@ -56,11 +56,21 @@ pub fn parse_ports_string_to_vec(s: &str) -> Result<Vec<u16>, String> {
             ports_flat_vec.push(port);
         }
     }
-    if ports_flat_vec.len() > 65535 {
-        return Err(format!("Too many ports to scan - {} - you have duplicates", ports_flat_vec.len()));
+    
+    // Deduplicate ports
+    let mut seen = [false; 65_536];
+    let mut out = Vec::with_capacity(ports_flat_vec.len());
+
+    for port in ports_flat_vec {
+        if !seen[port as usize] {
+            seen[port as usize] = true;
+            out.push(port);
+        }
     }
 
-    Ok(ports_flat_vec)
+    out.shrink_to_fit();
+
+    Ok(out)
 }
 
 #[derive(Debug, Clone)]
