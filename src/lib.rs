@@ -4,19 +4,16 @@ pub mod strategy;
 pub mod configuration;
 
 use crate::configuration::{Config, ScanType};
-use crate::modes::{Target, Mode};
+use crate::modes::Mode;
 use std::sync::Arc;
 use futures::stream::{self, StreamExt};
 use governor::{Quota, RateLimiter};
-use log::info;
-use indicatif::ProgressBar;
+use log::{info, error};
 use std::num::NonZeroU32;   
-use crate::modes::fulltcp::TcpScan;
 use tokio::sync::Mutex;
 use crate::modes::PortStatus;
 use rand::seq::SliceRandom;
 use rand::rng;
-use crate::strategy::round_robin::RoundRobinStrategy;
 use crate::strategy::ScanStrategyTrait;
 use crate::ui::Ui;
 use std::unimplemented;
@@ -30,7 +27,7 @@ pub async fn run(mut config: Config) {
     if config.shuffle_ports {
         config.ports.ports.shuffle(&mut rng());
     }
-
+    
     start_mass_scan(Arc::new(config), Arc::new(mode)).await;
 }
 
@@ -43,7 +40,7 @@ pub async fn start_mass_scan(
     ui.print_banner();
 
     let hosts = config.targets.clone();
-    let mut ports = config.ports.clone();    
+    let ports = config.ports.clone();    
     let number_of_targets = hosts.len() * ports.len();
     let targets = config.scan_strategy.create_targets(&config.targets, &config.ports);
 
@@ -56,8 +53,16 @@ pub async fn start_mass_scan(
     } else if let Some(ratelimit_per_host) = config.ratelimit_per_host {
         // TODO: we must think about ratelimit per any host
         ratelimit = ratelimit_per_host * hosts.len() as u64;
-    } else if let Some(maximum_scan_time) = config.maximum_scan_time {
-        unimplemented!("Maximum scan time is not implemented");
+    } else if let Some(maximum_scan_time) = &config.maximum_scan_time {
+        match parse_duration::parse(maximum_scan_time) {
+            Ok(duration) => {
+                ratelimit = (number_of_targets as f64 / duration.as_secs() as f64).ceil() as u64;
+            }
+            Err(e) => {
+                error!("Invalid maximum scan time: {}", e);
+                return;
+            }
+        }
     }
 
     let limiter = Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(ratelimit as u32).unwrap())));

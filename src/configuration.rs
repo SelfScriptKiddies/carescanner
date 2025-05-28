@@ -64,17 +64,17 @@ pub struct Config {
     pub logging_level: LoggingLevel,
 
     // Scan options
-    #[arg(long, help_heading = "Scan options", alias = "target", help = "Targets to scan (e.g., 192.168.1.0/24, scanme.nmap.org), comma-separated, or from a file (e.g., file:targets.txt)", value_name = "TARGETS_LIST", value_parser = target_parsing::parse_target_input)]
+    #[arg(short, long, help_heading = "Scan options", alias = "target", help = "Targets to scan (e.g., 192.168.1.0/24, scanme.nmap.org), comma-separated, or from a file (e.g., file:targets.txt)", value_name = "TARGETS_LIST", value_parser = target_parsing::parse_target_input)]
     pub targets: TargetList,
 
-    #[arg(long, help_heading = "Scan options", alias = "port", help = "Ports to scan (e.g., 80,443, 22-25, file:ports.txt), comma-separated, or from a file", value_name = "PORTS_LIST", default_value = "1-65535")]
+    #[arg(short, long, help_heading = "Scan options", alias = "port", help = "Ports to scan (e.g., 80,443, 22-25, file:ports.txt), comma-separated, or from a file", value_name = "PORTS_LIST", default_value = "1-65535")]
     pub ports: PortList,
 
     #[arg(long, help_heading = "Scan options", help = "Shuffle ports", value_name = "SHUFFLE_PORTS", default_value = "false")]
     pub shuffle_ports: bool,
 
-    #[arg(long, help_heading = "Scan options", help = "Proxies to use for the scan (e.g., socks5://localhost:9050, http://user:pass@host:port), comma-separated, or from a file (e.g., file:proxies.txt)", value_name = "PROXIES_LIST")]
-    pub proxies: Option<Vec<String>>,
+    #[arg(long, help_heading = "Scan options", help = "socks5 proxies to use for the scan. Order of connecting it will be as in argument. Separate by comma (e.g., socks5://localhost:9050, socks5://192.168.1.1:9050)", value_name = "PROXY")]
+    pub proxy_chain: Option<String>,
 
     #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]
     pub resume_from: Option<String>,
@@ -93,7 +93,7 @@ pub struct Config {
     pub ratelimit_per_host: Option<u64>,
 
     #[arg(short='M', long, help_heading = "Speed options", help = "Maximum scan time", conflicts_with_all = ["ratelimit", "ratelimit_per_host"])]
-    pub maximum_scan_time: Option<u64>,
+    pub maximum_scan_time: Option<String>,
 
     #[arg(long, help_heading = "Speed options", help = "Maximum ports scanning at a time", default_value = "1000")]
     pub max_concurrent_ports: u64,
