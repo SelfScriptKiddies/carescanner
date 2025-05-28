@@ -75,8 +75,9 @@ pub async fn start_mass_scan(
     );
 
     let results = Arc::new(Mutex::new(Vec::new())); // Simple way to collect results
-
-    ui.init_progress_bar(number_of_targets as u64);
+    ui.init_progress_bar(number_of_targets as u64);    
+    // Needs to make progress bar visible from the start
+    ui.update_progress_bar(0);
     stream::iter(targets)
         .for_each_concurrent(config.max_concurrent_ports as usize, |target_to_scan| {
             let scanner_clone = Arc::clone(&scanner);
