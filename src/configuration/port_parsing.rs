@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use log::error;
 
 fn get_ports_from_file(filename: &str) -> Result<Vec<String>, String> {
     let actual_file_path = filename.trim();
@@ -48,18 +49,17 @@ pub fn parse_ports_string_to_vec(s: &str) -> Result<Vec<u16>, String> {
             }
 
             for port in start..=end {
-                if !ports_flat_vec.contains(&port) {
-                    ports_flat_vec.push(port);
-                }
+                ports_flat_vec.push(port);
             }
         } else {
             let port: u16 = part.trim().parse().map_err(|e| format!("Failed to parse port '{}': {}", part, e))?;
-            if !ports_flat_vec.contains(&port) {
-                ports_flat_vec.push(port);
-            }
+            ports_flat_vec.push(port);
         }
     }
-    ports_flat_vec.sort_unstable();
+    if ports_flat_vec.len() > 65535 {
+        return Err(format!("Too many ports to scan - {} - you have duplicates", ports_flat_vec.len()));
+    }
+
     Ok(ports_flat_vec)
 }
 
