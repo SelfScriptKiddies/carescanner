@@ -1,3 +1,4 @@
+use tokio::io::AsyncWriteExt;
 // Default 3-step handshake
 use tokio::net::TcpStream;
 use tokio::time::Duration;
@@ -32,7 +33,11 @@ impl Mode for TcpScan {
         ).await;
 
         match stream {
-            Ok(Ok(_stream)) => PortStatus::Open,
+            Ok(Ok(mut stream)) => {
+                let _ = stream.shutdown().await;
+                drop(stream);
+                PortStatus::Open
+            }
             Ok(Err(_closed_error)) => PortStatus::Closed,
             Err(_timeout_error) => PortStatus::Filtered,
         }
