@@ -4,7 +4,7 @@ pub mod strategy;
 pub mod configuration;
 
 use crate::configuration::Config;
-use crate::modes::{ScanType, ScanTypeName, ScanTypeTrait};
+use crate::modes::{ScanType, ScanTypeTrait};
 use std::sync::Arc;
 use futures::stream::{self, StreamExt};
 use governor::{Quota, RateLimiter};
@@ -16,7 +16,6 @@ use rand::seq::SliceRandom;
 use rand::rng;
 use crate::strategy::ScanStrategyTrait;
 use crate::ui::Ui;
-use std::unimplemented;
 
 pub async fn run(mut config: Config) {
     let modes: Vec<ScanType> = config.scan_type.iter().cloned().map(|scan_type| ScanType::build(scan_type, &config)).collect::<Vec<_>>();
@@ -89,7 +88,7 @@ pub async fn start_mass_scan(
                     
                     match status {
                         PortStatus::Open => {
-                            ui_clone.print_progress_bar(format!("Host: {}, Port: {}, Status: {:?}", &target_to_scan.ip, &target_to_scan.port, status));
+                            ui_clone.print_progress_bar(format!("Host: {}, Port: {}/{}, Status: {:?}", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol(), status));
                             let mut results_guard = results_clone.lock().await;
                             results_guard.push((target_to_scan.clone(), status));
                         }
