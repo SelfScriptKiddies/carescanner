@@ -23,6 +23,9 @@ pub async fn run(mut config: Config) {
     if config.shuffle_ports {
         config.ports.ports.shuffle(&mut rng());
     }
+
+    // Additional limit for ulimit
+    config.max_concurrent_ports = increase_ulimit(config.max_concurrent_ports as usize) as u64;
     
     start_mass_scan(Arc::new(config), Arc::new(modes)).await;
 }
@@ -61,8 +64,6 @@ pub async fn start_mass_scan(
         }
     }
 
-    // Additional limit for ulimit
-    ratelimit = increase_ulimit(ratelimit as usize) as u64;
 
     let limiter = Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(ratelimit as u32).unwrap())));
 
