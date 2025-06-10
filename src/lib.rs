@@ -61,6 +61,9 @@ pub async fn start_mass_scan(
         }
     }
 
+    // Additional limit for ulimit
+    ratelimit = increase_ulimit(ratelimit as usize) as u64;
+
     let limiter = Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(ratelimit as u32).unwrap())));
 
     info!(
@@ -105,3 +108,107 @@ pub async fn start_mass_scan(
 
     info!("Scanning complete. Processed {} results.", results.lock().await.len());
 }
+
+/// Cross-platform function to increase ulimit (file descriptor limit)
+/// Returns the actual ulimit value after attempting to increase it
+#[cfg(unix)]
+pub fn increase_ulimit(new_size: usize) -> usize {
+    
+    unsafe {
+        let mut rlimit = libc::rlimit {
+            rlim_cur: 0,
+            rlim_max: 0,
+        };
+        
+        // Get current limits
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut rlimit) != 0 {
+            error!("Failed to get current ulimit");
+            return 1024; // Default fallback
+        }
+        
+        let current_soft = rlimit.rlim_cur as usize;
+        let current_hard = rlimit.rlim_max as usize;
+        
+        info!("Current ulimit: soft={}, hard={}", current_soft, current_hard);
+        
+        // If requested size is already lower than current, return current
+        if new_size <= current_soft {
+            return current_soft;
+        }
+        
+        // Try to set new soft limit
+        rlimit.rlim_cur = std::cmp::min(new_size as u64, rlimit.rlim_max);
+        
+        if libc::setrlimit(libc::RLIMIT_NOFILE, &rlimit) == 0 {
+            info!("Successfully increased ulimit to {}", rlimit.rlim_cur);
+            rlimit.rlim_cur as usize
+        } else {
+            error!("Failed to increase ulimit to {}, keeping current value {}", new_size, current_soft);
+            current_soft
+        }
+    }
+}
+
+#[cfg(windows)]
+pub fn increase_ulimit(new_size: usize) -> usize {
+    
+    // On Windows, there's no direct ulimit equivalent
+    // The closest thing is the number of handles a process can have
+    // Windows typically allows 16M handles per process by default
+    
+    const WINDOWS_DEFAULT_HANDLE_LIMIT: usize = 16_777_216; // 16M handles
+    const WINDOWS_PRACTICAL_LIMIT: usize = 65536; // Practical limit for most apps
+    
+    info!("Windows detected - ulimit concept doesn't exist");
+    info!("Requested size: {}, Windows default handle limit: {}", new_size, WINDOWS_DEFAULT_HANDLE_LIMIT);
+    
+    // For network operations, Windows socket limit is typically around 64K
+    if new_size <= WINDOWS_PRACTICAL_LIMIT {
+        info!("Requested size {} is within Windows practical limits", new_size);
+        new_size
+    } else {
+        info!("Requested size {} exceeds practical Windows limits, returning {}", new_size, WINDOWS_PRACTICAL_LIMIT);
+        WINDOWS_PRACTICAL_LIMIT
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+pub fn increase_ulimit(new_size: usize) -> usize {
+    error!("Ulimit adjustment not supported on this platform");
+    1024 // Conservative fallback
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_increase_ulimit() {
+        let result = increase_ulimit(4096);
+        
+        #[cfg(windows)]
+        {
+            assert!(result <= 65536);
+            println!("Windows ulimit result: {}", result);
+        }
+        
+        #[cfg(unix)]
+        {
+            assert!(result >= 1024);
+            println!("Unix ulimit result: {}", result);
+        }
+        
+        let large_result = increase_ulimit(100000);
+        
+        #[cfg(windows)]
+        {
+            assert_eq!(large_result, 65536);
+        }
+        
+        #[cfg(unix)]
+        {
+            assert!(large_result >= 1024);
+        }
+    }
+}
+

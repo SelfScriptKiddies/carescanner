@@ -13,7 +13,16 @@ futures = "0.3.31"
 governor = "0.10.0"
 indicatif = "0.17.11"
 ipnetwork = "0.21.1"
+libc = { version = "0.2", optional = true }
 log = "0.4.27"
 parse_duration = "2.1.1"
 rand = "0.9.1"
 tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util"] }
+
+[profile.release]
+strip = "symbols"
+lto = true
+
+[features]
+default = []
+unix = ["libc"]
