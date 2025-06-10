@@ -13,7 +13,7 @@ futures = "0.3.31"
 governor = "0.10.0"
 indicatif = "0.17.11"
 ipnetwork = "0.21.1"
-
+dns-lookup = "2.0.4"
 log = "0.4.27"
 parse_duration = "2.1.1"
 rand = "0.9.1"
@@ -24,4 +24,4 @@ strip = "symbols"
 lto = true
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2"
+rlimit = "0.10.2"

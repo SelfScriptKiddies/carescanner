@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use ipnetwork::IpNetwork;
+use dns_lookup::lookup_host;
 
 #[derive(Debug, Clone)]
 pub struct TargetList {
@@ -67,15 +68,25 @@ pub fn parse_target_input(s: &str) -> Result<TargetList, String> {
     // Expand CIDR notation to individual IP addresses
     let mut expanded_addresses = Vec::new();
     for addr in addresses {
-        if addr.contains('/') {
-            let cidr = addr.parse::<IpNetwork>().map_err(|e| format!("Invalid CIDR notation '{}': {}", addr, e))?;
-            for ip in cidr.iter() {
-                expanded_addresses.push(ip.to_string());
-            }
-        } else {
-            expanded_addresses.push(addr);
-        }
+        expanded_addresses.extend(expand_target(&addr)?);
     }
     
     Ok(TargetList { targets: expanded_addresses })
 } 
+
+fn expand_target(target: &str) -> Result<Vec<String>, String> {
+    let mut expanded_addresses = Vec::new();
+    // CIDR notation
+    if target.contains('/') {
+        let cidr = target.parse::<IpNetwork>().map_err(|e| format!("Invalid CIDR notation '{}': {}", target, e))?;
+        for ip in cidr.iter() {
+            expanded_addresses.push(ip.to_string());
+        }
+    } else {
+        // Lookup host
+        let hosts = lookup_host(target).map_err(|e| format!("Failed to lookup host '{}': {}", target, e))?;
+        expanded_addresses.extend(hosts.iter().map(|host| host.to_string()));
+    }
+
+    Ok(expanded_addresses)
+}
