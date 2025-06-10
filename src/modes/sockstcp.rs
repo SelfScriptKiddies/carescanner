@@ -10,7 +10,7 @@ pub struct Socks5TcpScan {
 
 impl Socks5TcpScan {
     pub fn new(config: &Config) -> Self { 
-        let socks5_proxies = config.proxy_chain.clone();
+        let socks5_proxies = config.proxies.clone();
 
         Self { 
             name: "socks5 TCP connection".to_string(), 
@@ -22,6 +22,10 @@ impl Socks5TcpScan {
 
 #[async_trait]
 impl ScanTypeTrait for Socks5TcpScan {
+    fn protocol(&self) -> &str {
+        "tcp"
+    }
+
     fn name(&self) -> &str {
         &self.name
     }

@@ -26,6 +26,10 @@ impl ScanTypeTrait for TcpScan {
         &self.name
     }
 
+    fn protocol(&self) -> &str {
+        "tcp"
+    }
+
     async fn scan(&self, target: &Target) -> PortStatus {
         let stream = tokio::time::timeout(
             Duration::from_secs(self.timeout), 
