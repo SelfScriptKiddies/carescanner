@@ -1,11 +1,13 @@
 mod target_parsing;
 mod port_parsing;
+mod proxy;
 
 
 pub use target_parsing::TargetList;
 pub use port_parsing::PortList;
-use clap::Parser;
+use clap::{Parser, builder::ArgPredicate};
 use crate::modes::ScanTypeName;
+use proxy::ProxyStrategy;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum FormatScan { 
@@ -66,8 +68,11 @@ pub struct Config {
     #[arg(long, help_heading = "Scan options", help = "Shuffle ports", value_name = "SHUFFLE_PORTS", default_value = "false")]
     pub shuffle_ports: bool,
 
-    #[arg(long, help_heading = "Scan options", help = "socks5 proxies to use for the scan. Order of connecting it will be as in argument. Separate by comma (e.g., socks5://localhost:9050, socks5://192.168.1.1:9050)", value_name = "PROXY")]
-    pub proxy_chain: Option<String>,
+    #[arg(long, help_heading = "Scan options", help = "socks5 proxies to use for the scan. Order of connecting it will be as in argument. Separate by comma (e.g., socks5://localhost:9050, socks5://192.168.1.1:9050)", value_name = "PROXY", value_parser = proxy::parse_proxy_input)]
+    pub proxies: Option<Vec<String>>,
+
+    #[arg(long, help_heading = "Scan options", help = "Proxy strategy", value_name = "PROXY_STRATEGY", default_value_if("proxies", ArgPredicate::IsPresent, "sequential"))]
+    pub proxy_strategy: Option<ProxyStrategy>,
 
     #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]
     pub resume_from: Option<String>,
@@ -75,7 +80,7 @@ pub struct Config {
     #[arg(long, help_heading = "Scan options", help = "Scan strategy", value_name = "SCAN_STRATEGY", default_value = "round-robin")]
     pub scan_strategy: ScanStrategy,
 
-    #[arg(short, long, help_heading = "Scan options", help = "Scan options", default_value = "tcp")]
+    #[arg(short, long, help_heading = "Scan options", help = "Scan options", default_value = "tcp", value_delimiter = ',')]
     pub scan_type: Vec<ScanTypeName>,
 
     // Speed options
