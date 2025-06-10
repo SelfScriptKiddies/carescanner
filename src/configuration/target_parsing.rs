@@ -39,7 +39,7 @@ impl TargetList {
     }
 }
 
-fn read_addresses_from_file(filepath: &str) -> Result<Vec<String>, String> {
+pub fn read_addresses_from_file(filepath: &str) -> Result<Vec<String>, String> {
     let filepath = filepath.trim();
     if filepath.is_empty() {
         return Err("Empty file path for targets specified with 'file:' prefix.".into());
