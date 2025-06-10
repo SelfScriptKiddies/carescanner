@@ -2,7 +2,7 @@ use tokio::io::AsyncWriteExt;
 // Default 3-step handshake
 use tokio::net::TcpStream;
 use tokio::time::Duration;
-use crate::modes::{Mode, Target, PortStatus};
+use crate::modes::{ScanTypeTrait, Target, PortStatus};
 use crate::configuration::Config;
 use async_trait::async_trait;
 
@@ -21,7 +21,7 @@ impl TcpScan {
 }
 
 #[async_trait]
-impl Mode for TcpScan {
+impl ScanTypeTrait for TcpScan {
     fn name(&self) -> &str {
         &self.name
     }

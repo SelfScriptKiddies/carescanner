@@ -5,14 +5,7 @@ mod port_parsing;
 pub use target_parsing::TargetList;
 pub use port_parsing::PortList;
 use clap::Parser;
-
-#[derive(Debug, Clone, clap::ValueEnum)]
-pub enum ScanType { 
-    Syn,
-    Tcp,
-    Fin,
-    Ping,
-}
+use crate::modes::ScanTypeName;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum FormatScan { 
@@ -83,7 +76,7 @@ pub struct Config {
     pub scan_strategy: ScanStrategy,
 
     #[arg(short, long, help_heading = "Scan options", help = "Scan options", default_value = "tcp")]
-    pub scan_type: ScanType,
+    pub scan_type: Vec<ScanTypeName>,
 
     // Speed options
     #[arg(short, long, help_heading = "Speed options", help = "Overall packet rate limit", conflicts_with_all = ["ratelimit_per_host", "maximum_scan_time"])]

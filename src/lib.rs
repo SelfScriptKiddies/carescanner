@@ -3,8 +3,8 @@ pub mod modes;
 pub mod strategy;
 pub mod configuration;
 
-use crate::configuration::{Config, ScanType};
-use crate::modes::Mode;
+use crate::configuration::Config;
+use crate::modes::{ScanType, ScanTypeName, ScanTypeTrait};
 use std::sync::Arc;
 use futures::stream::{self, StreamExt};
 use governor::{Quota, RateLimiter};
@@ -19,32 +19,29 @@ use crate::ui::Ui;
 use std::unimplemented;
 
 pub async fn run(mut config: Config) {
-    let mode = match config.scan_type {
-        ScanType::Tcp => modes::fulltcp::TcpScan::new(&config),
-        _ => unimplemented!("Unimplemented scan type"),
-    };
+    let modes: Vec<ScanType> = config.scan_type.iter().cloned().map(|scan_type| ScanType::build(scan_type, &config)).collect::<Vec<_>>();
 
     if config.shuffle_ports {
         config.ports.ports.shuffle(&mut rng());
     }
     
-    start_mass_scan(Arc::new(config), Arc::new(mode)).await;
+    start_mass_scan(Arc::new(config), Arc::new(modes)).await;
 }
 
 
 pub async fn start_mass_scan(
     config: Arc<Config>,
-    mode: Arc<dyn Mode>
+    modes: Arc<Vec<ScanType>>
 ) {
     let mut ui = Ui::new(&config);
     ui.print_banner();
 
     let hosts = config.targets.clone();
     let ports = config.ports.clone();    
-    let number_of_targets = hosts.len() * ports.len();
+    let number_of_targets = hosts.len() * ports.len() * modes.len();
     let targets = config.scan_strategy.create_targets(&config.targets, &config.ports);
 
-    let scanner = mode;
+    let scanner: Arc<Vec<ScanType>> = modes;
     // Default value
     let mut ratelimit: u64 = 1000;
 
@@ -80,26 +77,27 @@ pub async fn start_mass_scan(
     ui.update_progress_bar(0);
     stream::iter(targets)
         .for_each_concurrent(config.max_concurrent_ports as usize, |target_to_scan| {
-            let scanner_clone = Arc::clone(&scanner);
+            let scanner_clone: Arc<Vec<ScanType>> = Arc::clone(&scanner);
             let limiter_clone = Arc::clone(&limiter);
             let results_clone = results.clone(); // Clone target for the async block
             let mut ui_clone = ui.clone();
             async move {
-                limiter_clone.until_ready().await;
+                for scan_type in scanner_clone.iter() {
+                    limiter_clone.until_ready().await;
 
-                let status = scanner_clone.scan(&target_to_scan).await;
-                
-                match status {
-                    PortStatus::Open => {
-                        ui_clone.print_progress_bar(format!("Host: {}, Port: {}, Status: {:?}", target_to_scan.ip, target_to_scan.port, status));
-                        let mut results_guard = results_clone.lock().await;
-                        results_guard.push((target_to_scan, status));
+                    let status = ScanTypeTrait::scan(scan_type, &target_to_scan).await;
+                    
+                    match status {
+                        PortStatus::Open => {
+                            ui_clone.print_progress_bar(format!("Host: {}, Port: {}, Status: {:?}", &target_to_scan.ip, &target_to_scan.port, status));
+                            let mut results_guard = results_clone.lock().await;
+                            results_guard.push((target_to_scan.clone(), status));
+                        }
+                        _ => (),
                     }
-                    _ => (),
+                    
+                    ui_clone.increment_progress_bar(1);
                 }
-                
-                ui_clone.increment_progress_bar(1);
-                
             }
         })
         .await;
