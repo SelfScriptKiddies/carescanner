@@ -25,7 +25,7 @@ pub async fn run(mut config: Config) {
     }
 
     // Additional limit for ulimit
-    config.max_concurrent_ports = increase_ulimit(config.max_concurrent_ports as usize) as u64;
+    config.max_concurrent_ports = increase_ulimit(config.max_concurrent_ports * 2) / 2;
     
     start_mass_scan(Arc::new(config), Arc::new(modes)).await;
 }
@@ -113,52 +113,32 @@ pub async fn start_mass_scan(
 /// Cross-platform function to increase ulimit (file descriptor limit)
 /// Returns the actual ulimit value after attempting to increase it
 #[cfg(unix)]
-pub fn increase_ulimit(new_size: usize) -> usize {
+pub fn increase_ulimit(new_size: u64) -> u64 {
+    use rlimit::Resource;
+
     
-    unsafe {
-        let mut rlimit = libc::rlimit {
-            rlim_cur: 0,
-            rlim_max: 0,
-        };
-        
-        // Get current limits
-        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut rlimit) != 0 {
-            error!("Failed to get current ulimit");
-            return 1024; // Default fallback
+    match Resource::NOFILE.set(new_size, new_size) {
+        Ok(_) => {
+            info!("Automatically increasing ulimit value to {new_size}.");
         }
-        
-        let current_soft = rlimit.rlim_cur as usize;
-        let current_hard = rlimit.rlim_max as usize;
-        
-        info!("Current ulimit: soft={}, hard={}", current_soft, current_hard);
-        
-        // If requested size is already lower than current, return current
-        if new_size <= current_soft {
-            return current_soft;
-        }
-        
-        // Try to set new soft limit
-        rlimit.rlim_cur = std::cmp::min(new_size as u64, rlimit.rlim_max);
-        
-        if libc::setrlimit(libc::RLIMIT_NOFILE, &rlimit) == 0 {
-            info!("Successfully increased ulimit to {}", rlimit.rlim_cur);
-            rlimit.rlim_cur as usize
-        } else {
-            error!("Failed to increase ulimit to {}, keeping current value {}", new_size, current_soft);
-            current_soft
+        Err(e) => {
+            error!("Failed to set ulimit value. {}", e);
         }
     }
+
+    let (soft, _) = Resource::NOFILE.get().unwrap();
+    soft
 }
 
 #[cfg(windows)]
-pub fn increase_ulimit(new_size: usize) -> usize {
+pub fn increase_ulimit(new_size: u64) -> u64 {
     
     // On Windows, there's no direct ulimit equivalent
     // The closest thing is the number of handles a process can have
     // Windows typically allows 16M handles per process by default
     
-    const WINDOWS_DEFAULT_HANDLE_LIMIT: usize = 16_777_216; // 16M handles
-    const WINDOWS_PRACTICAL_LIMIT: usize = 65536; // Practical limit for most apps
+    const WINDOWS_DEFAULT_HANDLE_LIMIT: u64 = 16_777_216; // 16M handles
+    const WINDOWS_PRACTICAL_LIMIT: u64 = 65536; // Practical limit for most apps
     
     info!("Windows detected - ulimit concept doesn't exist");
     info!("Requested size: {}, Windows default handle limit: {}", new_size, WINDOWS_DEFAULT_HANDLE_LIMIT);
@@ -174,7 +154,7 @@ pub fn increase_ulimit(new_size: usize) -> usize {
 }
 
 #[cfg(not(any(unix, windows)))]
-pub fn increase_ulimit(new_size: usize) -> usize {
+pub fn increase_ulimit(new_size: u64) -> u64 {
     error!("Ulimit adjustment not supported on this platform");
     1024 // Conservative fallback
 }
