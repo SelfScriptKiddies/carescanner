@@ -24,8 +24,8 @@ pub async fn run(mut config: Config) {
         config.ports.ports.shuffle(&mut rng());
     }
 
-    // Additional limit for ulimit
-    config.max_concurrent_ports = increase_ulimit(config.max_concurrent_ports * 2) / 2;
+    // Additional limit for ulimit (x1.5 for safety)
+    config.max_concurrent_ports = increase_ulimit((config.max_concurrent_ports as f64 * 1.5).ceil() as u64) / 1.5 as u64;
     
     start_mass_scan(Arc::new(config), Arc::new(modes)).await;
 }
