@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use log::error;
 
 fn get_ports_from_file(filename: &str) -> Result<Vec<String>, String> {
     let actual_file_path = filename.trim();

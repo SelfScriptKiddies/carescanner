@@ -11,7 +11,7 @@ use futures::stream::{self, StreamExt};
 use governor::{Quota, RateLimiter};
 use log::{info, error};
 use std::num::NonZeroU32;   
-use tokio::sync::Mutex;
+use crate::appstate::AppStateManager;
 use crate::modes::PortStatus;
 use rand::seq::SliceRandom;
 use rand::rng;
@@ -75,7 +75,10 @@ pub async fn start_mass_scan(
         ratelimit
     );
 
-    let results = Arc::new(Mutex::new(Vec::new())); // Simple way to collect results
+    // Using mpsc channel to collect results
+    let app_state_manager = AppStateManager::new();
+    let results_sender = app_state_manager.get_results_sender();
+
     ui.init_progress_bar(number_of_targets as u64);    
     // Needs to make progress bar visible from the start
     ui.update_progress_bar(0);
@@ -83,19 +86,18 @@ pub async fn start_mass_scan(
         .for_each_concurrent(config.max_concurrent_ports as usize, |target_to_scan| {
             let scanner_clone: Arc<Vec<ScanType>> = Arc::clone(&scanner);
             let limiter_clone = Arc::clone(&limiter);
-            let results_clone = results.clone(); // Clone target for the async block
+            let results_sender_clone = results_sender.clone(); // Clone target for the async block
             let mut ui_clone = ui.clone();
             async move {
                 for scan_type in scanner_clone.iter() {
                     limiter_clone.until_ready().await;
 
                     let status = ScanTypeTrait::scan(scan_type, &target_to_scan).await;
+                    results_sender_clone.send((target_to_scan.clone(), status.clone())).unwrap();
                     
                     match status {
                         PortStatus::Open => {
                             ui_clone.print_progress_bar(format!("Host: {}, Port: {}/{}, Status: {:?}", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol(), status));
-                            let mut results_guard = results_clone.lock().await;
-                            results_guard.push((target_to_scan.clone(), status));
                         }
                         _ => (),
                     }
@@ -103,12 +105,12 @@ pub async fn start_mass_scan(
                     ui_clone.increment_progress_bar(1);
                 }
             }
-        })
-        .await;
-
+        }).await;
     ui.finish_progress_bar();
+    
+    let final_state = app_state_manager.finish().await;
 
-    info!("Scanning complete. Processed {} results.", results.lock().await.len());
+    info!("Scanning complete. Processed results: {:?}", final_state.get_results());
 }
 
 /// Cross-platform function to increase ulimit (file descriptor limit)
