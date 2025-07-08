@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
 use crate::configuration::target_parsing::read_addresses_from_file;
 
 #[derive(Debug, Clone)]

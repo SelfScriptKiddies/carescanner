@@ -13,7 +13,7 @@ pub struct Target {
     pub port: u16,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PortStatus {
     Open,
     Filtered,

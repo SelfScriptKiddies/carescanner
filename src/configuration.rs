@@ -7,7 +7,7 @@ pub use target_parsing::TargetList;
 pub use port_parsing::PortList;
 use clap::{Parser, builder::ArgPredicate};
 use crate::modes::ScanTypeName;
-use proxy::ProxyStrategy;
+pub use proxy::{ProxyStrategy, ProxyList};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum FormatScan { 
@@ -69,7 +69,7 @@ pub struct Config {
     pub shuffle_ports: bool,
 
     #[arg(long, help_heading = "Scan options", help = "socks5 proxies to use for the scan. Order of connecting it will be as in argument. Separate by comma (e.g., socks5://localhost:9050, socks5://192.168.1.1:9050)", value_name = "PROXY", value_parser = proxy::parse_proxy_input)]
-    pub proxies: Option<Vec<String>>,
+    pub proxies: Option<ProxyList>,
 
     #[arg(long, help_heading = "Scan options", help = "Proxy strategy", value_name = "PROXY_STRATEGY", default_value_if("proxies", ArgPredicate::IsPresent, "sequential"))]
     pub proxy_strategy: Option<ProxyStrategy>,

@@ -18,6 +18,7 @@ log = "0.4.27"
 parse_duration = "2.1.1"
 rand = "0.9.1"
 tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util"] }
+tokio-socks = "0.5.2"
 
 [profile.release]
 strip = "symbols"
