@@ -2,6 +2,7 @@ pub mod ui;
 pub mod modes;
 pub mod strategy;
 pub mod configuration;
+pub mod appstate;
 
 use crate::configuration::Config;
 use crate::modes::{ScanType, ScanTypeTrait};
