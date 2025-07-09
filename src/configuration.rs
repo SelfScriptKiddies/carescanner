@@ -115,4 +115,7 @@ pub struct Config {
 
     #[arg(short, long, help_heading = "Output options", default_value = "text")]
     pub format: FormatScan,
+
+    #[arg(short='c', long, help_heading = "Output options", help = "Show closed ports")]
+    pub show_closed_ports: bool,
 }

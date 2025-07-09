@@ -27,8 +27,10 @@ impl Socks5TcpScan {
     }
 
     async fn scan_with_proxy(&self, target: &Target, proxy: &str) -> PortStatus {
-        let _ = Socks5Stream::connect(proxy, format!("{}:{}", target.ip, target.port)).await;
-        PortStatus::Open
+        match Socks5Stream::connect(proxy, format!("{}:{}", target.ip, target.port)).await {
+            Ok(_) => PortStatus::Open,
+            Err(_) => PortStatus::Closed
+        }
     }
 }
 
@@ -47,7 +49,7 @@ impl ScanTypeTrait for Socks5TcpScan {
             ProxyStrategy::Sequential => {
                 let mut offset = self.offset.lock().await;
                 let proxy = &self.socks5_proxies.vec()[*offset];
-                *offset = *offset + 1;
+                *offset = (*offset + 1) % self.socks5_proxies.len();
                 self.scan_with_proxy(target, &proxy).await
             }
             _ => unimplemented!("Socks5 TCP scan is not implemented yet")
