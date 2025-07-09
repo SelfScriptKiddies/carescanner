@@ -22,12 +22,12 @@ pub enum PortStatus {
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum ScanTypeName { 
-    Syn,
+    // Syn,
     Tcp,
-    Fin,
-    Ping,
+    // Fin,
+    // Ping,
     Udp,
-    Socks5Tcp,
+    // Socks5Tcp,
 }
 
 #[async_trait]
@@ -50,7 +50,6 @@ impl ScanType {
         match scan_type {
             ScanTypeName::Tcp => ScanType::Tcp(fulltcp::TcpScan::new(&config)),
             ScanTypeName::Udp => ScanType::Udp(udp::UdpScan::new(&config)),
-            ScanTypeName::Socks5Tcp => ScanType::Sockstcp(sockstcp::Socks5TcpScan::new(&config)),
             _ => unimplemented!("Unimplemented scan type"),
         }
     }

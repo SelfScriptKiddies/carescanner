@@ -1,3 +1,5 @@
+/// NOT IMPLEMENTED YET
+
 use crate::configuration::{Config, ProxyStrategy};
 use crate::modes::{PortStatus, ScanTypeTrait, Target};
 use tokio_socks::{tcp::socks5::Socks5Stream};
@@ -29,7 +31,10 @@ impl Socks5TcpScan {
     async fn scan_with_proxy(&self, target: &Target, proxy: &str) -> PortStatus {
         match Socks5Stream::connect(proxy, format!("{}:{}", target.ip, target.port)).await {
             Ok(_) => PortStatus::Open,
-            Err(_) => PortStatus::Closed
+            Err(e) => {
+                println!("Error connecting to {}: {}", target.ip, e);
+                PortStatus::Closed
+            }
         }
     }
 }
