@@ -7,3 +7,5 @@ Blazingly fast port scanner, which won't drop your scan report. Configurable for
 - Ratelimit can be configured
 - Export to nmap XML format
 - Stop and save all progress in any moment
+
+TRY
