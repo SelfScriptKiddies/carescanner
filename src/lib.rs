@@ -107,6 +107,20 @@ pub async fn run(mut config: Config) {
         info!("Using top {} ports", n);
     }
 
+    // Distributed scanning: keep only this worker's portion of targets
+    if let (Some(total), Some(id)) = (config.total_workers, config.worker_id) {
+        if id >= total {
+            error!("worker-id ({}) must be less than total-workers ({})", id, total);
+            return;
+        }
+        let all = std::mem::take(&mut config.targets.targets);
+        config.targets.targets = all.into_iter().enumerate()
+            .filter(|(i, _)| i % total == id)
+            .map(|(_, h)| h)
+            .collect();
+        info!("Worker {}/{}: scanning {} hosts", id, total, config.targets.len());
+    }
+
     // Exclude hosts if --exclude is specified
     if let Some(exclude) = &config.exclude {
         let exclude_set: std::collections::HashSet<&str> =

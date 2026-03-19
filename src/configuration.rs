@@ -91,6 +91,12 @@ pub struct Config {
     #[arg(long, help_heading = "Scan options", help = "Grab service banners from open ports (adds latency)")]
     pub banner: bool,
 
+    #[arg(long, help_heading = "Scan options", help = "Total number of workers for distributed scanning", value_name = "N")]
+    pub total_workers: Option<usize>,
+
+    #[arg(long, help_heading = "Scan options", help = "This worker's ID (0-based) for distributed scanning", value_name = "ID")]
+    pub worker_id: Option<usize>,
+
     #[arg(long, help_heading = "Scan options", help = "Scan strategy", value_name = "SCAN_STRATEGY", default_value = "round-robin")]
     pub scan_strategy: ScanStrategy,
 
