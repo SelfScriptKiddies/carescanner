@@ -196,6 +196,11 @@ impl AppState {
     }
 
     fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
+        if path == "-" {
+            std::io::stdout().write_all(content.as_bytes())
+                .map_err(|e| format!("Failed to write to stdout: {}", e))?;
+            return Ok(());
+        }
         let mut file = std::fs::File::create(path)
             .map_err(|e| format!("Failed to create file '{}': {}", path, e))?;
         file.write_all(content.as_bytes())

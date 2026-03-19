@@ -117,6 +117,9 @@ pub struct Config {
     pub timeout: u64,
 
     // TUI options
+    #[arg(short='q', long, help_heading = "TUI options", help = "Quiet mode: no banner, no progress bar, no live output. Only final results.")]
+    pub quiet: bool,
+
     #[arg(long, help_heading = "TUI options", help = "Disable all TUI elements")]
     pub disable_all: bool,
 

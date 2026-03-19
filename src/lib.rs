@@ -92,6 +92,11 @@ pub async fn run(mut config: Config) {
     if config.nmap_path == "nmap" { if let Some(p) = file_cfg.nmap_path { config.nmap_path = p; } }
     if config.nmap_args.is_empty() { config.nmap_args = file_cfg.nmap_args.unwrap_or_default(); }
 
+    // Quiet mode: suppress all UI
+    if config.quiet {
+        config.disable_all = true;
+    }
+
     let modes: Vec<ScanType> = config.scan_type.iter().cloned().map(|scan_type| ScanType::build(scan_type, &config)).collect::<Vec<_>>();
 
     // Override ports with top-N if --top-ports is specified
@@ -227,6 +232,7 @@ pub async fn start_mass_scan(
     // Needs to make progress bar visible from the start
     ui.update_progress_bar(0);
 
+    let quiet = config.quiet;
     let scan_future = stream::iter(targets)
         .for_each_concurrent(config.max_concurrent_ports as usize, |target_to_scan| {
             let scanner_clone: Arc<Vec<ScanType>> = Arc::clone(&scanner);
@@ -267,7 +273,7 @@ pub async fn start_mass_scan(
 
                     results_sender_clone.send((target_to_scan.clone(), result, scan_type.protocol().to_string())).unwrap();
 
-                    if is_open {
+                    if is_open && !quiet {
                         let msg = match &service_display {
                             Some(svc) => format!("Open: {}:{}/{} ({})", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol(), svc),
                             None => format!("Open: {}:{}/{}", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol()),
@@ -304,8 +310,11 @@ pub async fn start_mass_scan(
     let state = app_state_manager.get_current_state().await;
 
     if !exited_early {
-        // Print summary table
-        state.print_summary(config.show_closed_ports);
+        // Print summary table (skip if piping to stdout with --output -)
+        let piping_stdout = config.output.as_deref() == Some("-");
+        if !piping_stdout {
+            state.print_summary(config.show_closed_ports);
+        }
 
         // Auto-save results if --output is specified
         if config.output.is_some() {
