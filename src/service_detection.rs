@@ -1,5 +1,11 @@
-/// Lightweight service identification from banner strings.
-/// Covers the most common services without external dependencies.
+/// Service identification from banner strings.
+///
+/// Level 1: simple string matching (fast, no dependencies).
+/// Level 2: regex-based probe matching via `service_probes` module.
+///
+/// The `identify()` function tries Level 2 first, then falls back to Level 1.
+
+use crate::service_probes;
 
 pub struct ServiceInfo {
     pub name: &'static str,
@@ -7,14 +13,41 @@ pub struct ServiceInfo {
 }
 
 /// Identify a service from a banner string and port number.
-pub fn identify(banner: &str, _port: u16) -> Option<ServiceInfo> {
-    // Try banner-based detection first (more accurate)
+///
+/// Tries Level 2 probe-based regex matching first. If that fails, falls back
+/// to the simpler Level 1 string matching.
+pub fn identify(banner: &str, port: u16) -> Option<ServiceInfo> {
+    // Level 2: probe-based regex matching
+    let is_http = is_http_port(port) || banner.starts_with("HTTP/");
+    if let Some(probe_result) = service_probes::identify_from_probes(banner, is_http) {
+        // Convert ProbeResult to ServiceInfo.
+        // Leak the service string into a &'static str so it fits the existing API.
+        // This is fine — service names are a small, bounded set and only allocated
+        // once per unique detected service during the scan lifetime.
+        let version = Some(probe_result.display());
+        let name: &'static str = leak_string(probe_result.service);
+        return Some(ServiceInfo { name, version });
+    }
+
+    // Level 1: simple string matching fallback
     if let Some(svc) = identify_from_banner(banner) {
         return Some(svc);
     }
-    // Fall back to well-known port mapping only if we got a banner
-    // (no banner = no point guessing)
+
     None
+}
+
+/// Common HTTP ports used to determine if a banner is likely an HTTP response.
+const HTTP_PORTS: &[u16] = &[80, 443, 8080, 8443, 8000, 8888, 8081, 3000];
+
+fn is_http_port(port: u16) -> bool {
+    HTTP_PORTS.contains(&port)
+}
+
+/// Leak a String into a &'static str. Used to bridge the gap between dynamic
+/// probe results and the existing ServiceInfo API that expects &'static str.
+fn leak_string(s: String) -> &'static str {
+    Box::leak(s.into_boxed_str())
 }
 
 fn identify_from_banner(banner: &str) -> Option<ServiceInfo> {

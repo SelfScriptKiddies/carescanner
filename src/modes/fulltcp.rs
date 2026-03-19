@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 const HTTP_PORTS: &[u16] = &[80, 443, 8080, 8443, 8000, 8888, 8081, 3000];
 const BANNER_TIMEOUT_MS: u64 = 2000;
-const MAX_BANNER_LEN: usize = 256;
+const MAX_BANNER_LEN: usize = 1024;
 
 pub struct TcpScan {
     pub name: String,
@@ -76,9 +76,11 @@ async fn grab_banner(stream: &mut TcpStream, target: &Target) -> Option<String> 
 
     match result {
         Ok(Ok(n)) if n > 0 => {
-            let raw = String::from_utf8_lossy(&buf[..n]);
-            let first_line = raw.lines().next().unwrap_or("").trim().to_string();
-            if first_line.is_empty() { None } else { Some(first_line) }
+            let raw = String::from_utf8_lossy(&buf[..n]).to_string();
+            // Return the full banner (needed for multi-line regex matching,
+            // e.g. HTTP Server header). Trim trailing whitespace/nulls.
+            let trimmed = raw.trim_end_matches(|c: char| c == '\0' || c.is_ascii_whitespace());
+            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
         }
         _ => None,
     }
