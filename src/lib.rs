@@ -5,6 +5,7 @@ pub mod configuration;
 pub mod appstate;
 pub mod signal_handler;
 pub mod nmap;
+pub mod service_detection;
 
 use crate::configuration::Config;
 use crate::configuration::top_ports::TOP_PORTS;

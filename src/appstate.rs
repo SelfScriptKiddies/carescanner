@@ -25,6 +25,18 @@ pub struct Port {
     pub banner: Option<String>,
 }
 
+impl Port {
+    /// Try to identify the service from the banner.
+    pub fn service_name(&self) -> Option<String> {
+        let banner = self.banner.as_deref()?;
+        let info = crate::service_detection::identify(banner, self.number)?;
+        match info.version {
+            Some(ver) => Some(format!("{} ({})", info.name, ver)),
+            None => Some(info.name.to_string()),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AppState {
     results: HashMap<String, Vec<Port>>,
@@ -102,7 +114,7 @@ impl AppState {
             println!("{:<10} {:<8} {}", "PORT", "STATE", "SERVICE");
 
             for port in &open {
-                let svc = port.banner.as_deref().unwrap_or("");
+                let svc = port.service_name().unwrap_or_default();
                 println!("{:<10} {GREEN}{:<8}{RESET} {CYAN}{}{RESET}",
                     format!("{}/{}", port.number, port.protocol), "open", svc);
             }
@@ -199,10 +211,11 @@ impl AppState {
             for port in ports {
                 match port.state {
                     PortState::Open => {
-                        if let Some(banner) = &port.banner {
-                            output.push_str(&format!("  {}/{}  open  {}\n", port.number, port.protocol, banner));
-                        } else {
+                        let svc = port.service_name().unwrap_or_default();
+                        if svc.is_empty() {
                             output.push_str(&format!("  {}/{}  open\n", port.number, port.protocol));
+                        } else {
+                            output.push_str(&format!("  {}/{}  open  {}\n", port.number, port.protocol, svc));
                         }
                     }
                     PortState::Closed if show_closed => {
@@ -265,11 +278,18 @@ impl AppState {
                     PortState::Closed => "closed",
                 };
                 xml.push_str(&format!(
-                    "      <port protocol=\"{}\" portid=\"{}\">\n        <state state=\"{}\"/>\n      </port>\n",
+                    "      <port protocol=\"{}\" portid=\"{}\">\n        <state state=\"{}\"/>\n",
                     xml_escape(&port.protocol),
                     port.number,
                     state_str,
                 ));
+                if let Some(svc) = port.service_name() {
+                    xml.push_str(&format!(
+                        "        <service name=\"{}\"/>\n",
+                        xml_escape(&svc),
+                    ));
+                }
+                xml.push_str("      </port>\n");
             }
 
             xml.push_str("    </ports>\n");
