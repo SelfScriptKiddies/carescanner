@@ -86,6 +86,15 @@ pub async fn run(mut config: Config) {
         info!("Using top {} ports", n);
     }
 
+    // Exclude hosts if --exclude is specified
+    if let Some(exclude) = &config.exclude {
+        let exclude_set: std::collections::HashSet<&str> =
+            exclude.targets.iter().map(|s| s.as_str()).collect();
+        let before = config.targets.len();
+        config.targets.targets.retain(|h| !exclude_set.contains(h.as_str()));
+        info!("Excluded {} hosts ({} remaining)", before - config.targets.len(), config.targets.len());
+    }
+
     // Ping scan: filter out dead hosts before main scan
     if config.ping {
         let alive = ping::discover_hosts(&config).await;

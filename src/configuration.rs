@@ -81,6 +81,9 @@ pub struct Config {
     #[arg(long, help_heading = "Scan options", help = "Proxy strategy", value_name = "PROXY_STRATEGY", default_value_if("proxies", ArgPredicate::IsPresent, "sequential"))]
     pub proxy_strategy: Option<ProxyStrategy>,
 
+    #[arg(long, help_heading = "Scan options", help = "Exclude hosts (e.g., 192.168.1.1,10.0.0.0/24), comma-separated or file:excludes.txt", value_name = "EXCLUDE_LIST", value_parser = target_parsing::parse_target_input)]
+    pub exclude: Option<TargetList>,
+
     #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]
     pub resume_from: Option<String>,
 
