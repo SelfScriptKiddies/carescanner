@@ -14,6 +14,17 @@ pub struct Target {
     pub port: u16,
 }
 
+impl Target {
+    /// Format as a socket address string, using `[ip]:port` for IPv6.
+    pub fn socket_addr(&self) -> String {
+        if self.ip.contains(':') {
+            format!("[{}]:{}", self.ip, self.port)
+        } else {
+            format!("{}:{}", self.ip, self.port)
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum PortStatus {
     Open,

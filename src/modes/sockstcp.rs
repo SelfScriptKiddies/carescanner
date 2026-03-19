@@ -35,7 +35,7 @@ impl Socks5TcpScan {
 
     /// Scan a target through a single SOCKS5 proxy.
     async fn scan_single_proxy(&self, target: &Target, proxy: &str) -> ScanResult {
-        let target_addr = format!("{}:{}", target.ip, target.port);
+        let target_addr = target.socket_addr();
 
         let result = tokio::time::timeout(
             Duration::from_secs(self.timeout),
@@ -61,7 +61,7 @@ impl Socks5TcpScan {
             return ScanResult::filtered();
         }
 
-        let target_addr = format!("{}:{}", target.ip, target.port);
+        let target_addr = target.socket_addr();
         // Scale timeout with chain length
         let timeout = Duration::from_secs(self.timeout * proxies.len() as u64);
 

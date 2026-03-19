@@ -75,11 +75,16 @@ impl AppState {
         &self.results
     }
 
-    /// Print a summary table to stdout.
+    /// Print a summary table to stdout with ANSI colors.
     pub fn print_summary(&self, show_closed: bool) {
+        const BOLD: &str = "\x1b[1m";
+        const GREEN: &str = "\x1b[32m";
+        const RED: &str = "\x1b[31m";
+        const CYAN: &str = "\x1b[36m";
+        const RESET: &str = "\x1b[0m";
+
         let mut has_results = false;
 
-        // Sort hosts for consistent output
         let mut hosts: Vec<&String> = self.results.keys().collect();
         hosts.sort();
 
@@ -93,16 +98,18 @@ impl AppState {
             }
 
             has_results = true;
-            println!("\n{}", host);
+            println!("\n{BOLD}{}{RESET}", host);
             println!("{:<10} {:<8} {}", "PORT", "STATE", "SERVICE");
 
             for port in &open {
                 let svc = port.banner.as_deref().unwrap_or("");
-                println!("{:<10} {:<8} {}", format!("{}/{}", port.number, port.protocol), "open", svc);
+                println!("{:<10} {GREEN}{:<8}{RESET} {CYAN}{}{RESET}",
+                    format!("{}/{}", port.number, port.protocol), "open", svc);
             }
             if show_closed {
                 for port in &closed {
-                    println!("{:<10} {:<8}", format!("{}/{}", port.number, port.protocol), "closed");
+                    println!("{:<10} {RED}{:<8}{RESET}",
+                        format!("{}/{}", port.number, port.protocol), "closed");
                 }
             }
         }
@@ -244,9 +251,11 @@ impl AppState {
             }
 
             xml.push_str("  <host>\n");
+            let addrtype = if host.contains(':') { "ipv6" } else { "ipv4" };
             xml.push_str(&format!(
-                "    <address addr=\"{}\" addrtype=\"ipv4\"/>\n",
+                "    <address addr=\"{}\" addrtype=\"{}\"/>\n",
                 xml_escape(host),
+                addrtype,
             ));
             xml.push_str("    <ports>\n");
 

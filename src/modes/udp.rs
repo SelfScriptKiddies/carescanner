@@ -30,12 +30,13 @@ impl ScanTypeTrait for UdpScan {
     }
 
     async fn scan(&self, target: &Target) -> ScanResult {
-        let socket = match UdpSocket::bind("0.0.0.0:0").await {
+        let bind_addr = if target.ip.contains(':') { "[::]:0" } else { "0.0.0.0:0" };
+        let socket = match UdpSocket::bind(bind_addr).await {
             Ok(socket) => socket,
             Err(_) => return ScanResult::filtered(),
         };
 
-        let target_addr = format!("{}:{}", target.ip, target.port);
+        let target_addr = target.socket_addr();
 
         if socket.send_to(&[], &target_addr).await.is_err() {
             return ScanResult::filtered();

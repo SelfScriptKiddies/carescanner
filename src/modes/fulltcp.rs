@@ -38,7 +38,7 @@ impl ScanTypeTrait for TcpScan {
     async fn scan(&self, target: &Target) -> ScanResult {
         let stream = tokio::time::timeout(
             Duration::from_secs(self.timeout),
-            TcpStream::connect(format!("{}:{}", target.ip, target.port)),
+            TcpStream::connect(target.socket_addr()),
         )
         .await;
 
