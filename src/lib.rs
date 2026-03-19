@@ -12,6 +12,7 @@ use crate::configuration::PortList;
 use crate::modes::{ScanType, ScanTypeTrait};
 use crate::modes::ping;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use futures::stream::{self, StreamExt};
 use governor::{Quota, RateLimiter};
 use log::{info, error};
@@ -24,6 +25,56 @@ use rand::rng;
 use crate::strategy::ScanStrategyTrait;
 use crate::ui::Ui;
 use crate::signal_handler::{PauseController, spawn_signal_handler};
+
+type SharedLimiter = Arc<std::sync::RwLock<Arc<governor::DefaultDirectRateLimiter>>>;
+
+fn make_limiter(rate: u64) -> Arc<governor::DefaultDirectRateLimiter> {
+    let rate = rate.max(1);
+    Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(rate as u32).unwrap())))
+}
+
+/// Background task: monitors timeout ratio and adjusts rate limiter.
+fn spawn_adaptive_task(
+    shared_limiter: SharedLimiter,
+    filtered_count: Arc<AtomicU64>,
+    total_count: Arc<AtomicU64>,
+    initial_rate: u64,
+) {
+    tokio::spawn(async move {
+        let mut current_rate = initial_rate;
+        let min_rate = (initial_rate / 20).max(10); // 5% of initial, min 10
+        let max_rate = initial_rate;
+
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+            let filtered = filtered_count.swap(0, Ordering::Relaxed);
+            let total = total_count.swap(0, Ordering::Relaxed);
+
+            if total < 50 {
+                continue; // Not enough data
+            }
+
+            let timeout_ratio = filtered as f64 / total as f64;
+
+            let new_rate = if timeout_ratio > 0.5 {
+                // Too many timeouts — halve the rate
+                (current_rate / 2).max(min_rate)
+            } else if timeout_ratio < 0.1 && current_rate < max_rate {
+                // Few timeouts — increase by 25%
+                (current_rate * 5 / 4).min(max_rate)
+            } else {
+                current_rate
+            };
+
+            if new_rate != current_rate {
+                info!("Adaptive rate: {} -> {} scans/sec (timeout ratio: {:.1}%)", current_rate, new_rate, timeout_ratio * 100.0);
+                *shared_limiter.write().unwrap() = make_limiter(new_rate);
+                current_rate = new_rate;
+            }
+        }
+    });
+}
 
 pub async fn run(mut config: Config) {
     let modes: Vec<ScanType> = config.scan_type.iter().cloned().map(|scan_type| ScanType::build(scan_type, &config)).collect::<Vec<_>>();
@@ -112,7 +163,19 @@ pub async fn start_mass_scan(
     }
 
 
-    let limiter = Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(ratelimit as u32).unwrap())));
+    let shared_limiter: SharedLimiter = Arc::new(std::sync::RwLock::new(make_limiter(ratelimit)));
+
+    // Adaptive rate limiting counters
+    let filtered_count = Arc::new(AtomicU64::new(0));
+    let total_count = Arc::new(AtomicU64::new(0));
+    if config.adaptive {
+        spawn_adaptive_task(
+            Arc::clone(&shared_limiter),
+            Arc::clone(&filtered_count),
+            Arc::clone(&total_count),
+            ratelimit,
+        );
+    }
 
     info!(
         "Starting scan for {} targets with {} concurrent scans and {} scans/sec limit.",
@@ -143,10 +206,12 @@ pub async fn start_mass_scan(
     let scan_future = stream::iter(targets)
         .for_each_concurrent(config.max_concurrent_ports as usize, |target_to_scan| {
             let scanner_clone: Arc<Vec<ScanType>> = Arc::clone(&scanner);
-            let limiter_clone = Arc::clone(&limiter);
+            let shared_limiter_clone = Arc::clone(&shared_limiter);
             let results_sender_clone = results_sender.clone();
             let mut ui_clone = ui.clone();
             let pause = pause_controller.clone();
+            let fc = Arc::clone(&filtered_count);
+            let tc = Arc::clone(&total_count);
             async move {
                 for scan_type in scanner_clone.iter() {
                     pause.wait_if_paused().await;
@@ -154,9 +219,17 @@ pub async fn start_mass_scan(
                         return;
                     }
 
-                    limiter_clone.until_ready().await;
+                    // Get current limiter (quick read-lock, clone Arc, release)
+                    let limiter = shared_limiter_clone.read().unwrap().clone();
+                    limiter.until_ready().await;
 
                     let result = ScanTypeTrait::scan(scan_type, &target_to_scan).await;
+
+                    // Track stats for adaptive rate limiting
+                    tc.fetch_add(1, Ordering::Relaxed);
+                    if matches!(result.status, PortStatus::Filtered) {
+                        fc.fetch_add(1, Ordering::Relaxed);
+                    }
                     let is_open = matches!(result.status, PortStatus::Open);
                     let banner_display = result.banner.clone();
                     results_sender_clone.send((target_to_scan.clone(), result, scan_type.protocol().to_string())).unwrap();

@@ -103,6 +103,9 @@ pub struct Config {
     #[arg(short='M', long, help_heading = "Speed options", help = "Maximum scan time", conflicts_with_all = ["ratelimit", "ratelimit_per_host"])]
     pub maximum_scan_time: Option<String>,
 
+    #[arg(long, help_heading = "Speed options", help = "Adaptive rate limiting: auto-adjusts speed based on timeout ratio")]
+    pub adaptive: bool,
+
     #[arg(long, help_heading = "Speed options", help = "Maximum ports scanning at a time", default_value = "1000")]
     pub max_concurrent_ports: u64,
 
