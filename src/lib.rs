@@ -77,6 +77,18 @@ fn spawn_adaptive_task(
 }
 
 pub async fn run(mut config: Config) {
+    // Apply config file defaults (CLI flags take precedence)
+    let file_cfg = crate::configuration::config_file::load_config_file();
+    if config.ratelimit.is_none() { config.ratelimit = file_cfg.ratelimit; }
+    if config.timeout == 3 { if let Some(t) = file_cfg.timeout { config.timeout = t; } }
+    if config.max_concurrent_ports == 1000 { if let Some(m) = file_cfg.max_concurrent_ports { config.max_concurrent_ports = m; } }
+    if config.output.is_none() { config.output = file_cfg.output; }
+    if !config.banner { config.banner = file_cfg.banner.unwrap_or(false); }
+    if !config.adaptive { config.adaptive = file_cfg.adaptive.unwrap_or(false); }
+    if !config.shuffle_ports { config.shuffle_ports = file_cfg.shuffle_ports.unwrap_or(false); }
+    if !config.ping { config.ping = file_cfg.ping.unwrap_or(false); }
+    if config.nmap_args.is_empty() { config.nmap_args = file_cfg.nmap_args.unwrap_or_default(); }
+
     let modes: Vec<ScanType> = config.scan_type.iter().cloned().map(|scan_type| ScanType::build(scan_type, &config)).collect::<Vec<_>>();
 
     // Override ports with top-N if --top-ports is specified
