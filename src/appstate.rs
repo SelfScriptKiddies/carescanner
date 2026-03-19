@@ -75,6 +75,44 @@ impl AppState {
         &self.results
     }
 
+    /// Print a summary table to stdout.
+    pub fn print_summary(&self, show_closed: bool) {
+        let mut has_results = false;
+
+        // Sort hosts for consistent output
+        let mut hosts: Vec<&String> = self.results.keys().collect();
+        hosts.sort();
+
+        for host in hosts {
+            let ports = &self.results[host];
+            let open: Vec<&Port> = ports.iter().filter(|p| p.state == PortState::Open).collect();
+            let closed: Vec<&Port> = ports.iter().filter(|p| p.state == PortState::Closed).collect();
+
+            if open.is_empty() && (!show_closed || closed.is_empty()) {
+                continue;
+            }
+
+            has_results = true;
+            println!("\n{}", host);
+            println!("{:<10} {:<8} {}", "PORT", "STATE", "SERVICE");
+
+            for port in &open {
+                let svc = port.banner.as_deref().unwrap_or("");
+                println!("{:<10} {:<8} {}", format!("{}/{}", port.number, port.protocol), "open", svc);
+            }
+            if show_closed {
+                for port in &closed {
+                    println!("{:<10} {:<8}", format!("{}/{}", port.number, port.protocol), "closed");
+                }
+            }
+        }
+
+        if !has_results {
+            println!("\nNo open ports found.");
+        }
+        println!();
+    }
+
     /// Get the list of hosts that have any results (used for resume).
     pub fn hosts_with_results(&self) -> Vec<String> {
         self.results.keys().cloned().collect()

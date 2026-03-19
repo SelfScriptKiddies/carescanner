@@ -197,8 +197,11 @@ pub async fn start_mass_scan(
 
     let state = app_state_manager.get_current_state().await;
 
-    // Auto-save results if --output is specified and we didn't exit via menu (menu already saves)
     if !exited_early {
+        // Print summary table
+        state.print_summary(config.show_closed_ports);
+
+        // Auto-save results if --output is specified
         if config.output.is_some() {
             match state.save_to_file(&config) {
                 Ok(path) => info!("Results saved to: {}", path),
