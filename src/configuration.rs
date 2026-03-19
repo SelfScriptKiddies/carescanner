@@ -139,6 +139,9 @@ pub struct Config {
     #[arg(short='c', long, help_heading = "Output options", help = "Show closed ports")]
     pub show_closed_ports: bool,
 
+    #[arg(long, help_heading = "Output options", help = "Start web dashboard on given port (e.g. --dashboard 8899)", value_name = "PORT")]
+    pub dashboard: Option<u16>,
+
     // Nmap integration
     #[arg(long, help_heading = "Nmap options", help = "Run nmap on discovered open ports for service detection")]
     pub nmap: bool,

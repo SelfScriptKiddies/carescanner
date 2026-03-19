@@ -7,6 +7,7 @@ pub mod signal_handler;
 pub mod nmap;
 pub mod service_detection;
 pub mod service_probes;
+pub mod web_dashboard;
 
 use crate::configuration::Config;
 use crate::configuration::top_ports::TOP_PORTS;
@@ -216,6 +217,11 @@ pub async fn start_mass_scan(
     // Using mpsc channel to collect results
     let app_state_manager = Arc::new(AppStateManager::new());
     let results_sender = app_state_manager.get_results_sender();
+
+    // Start web dashboard if requested
+    if let Some(port) = config.dashboard {
+        web_dashboard::spawn_dashboard(port, Arc::clone(&app_state_manager));
+    }
 
     // Setup pause controller and CTRL+C handler
     let pause_controller = PauseController::new();
