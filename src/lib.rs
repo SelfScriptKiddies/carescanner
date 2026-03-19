@@ -254,13 +254,22 @@ pub async fn start_mass_scan(
                         fc.fetch_add(1, Ordering::Relaxed);
                     }
                     let is_open = matches!(result.status, PortStatus::Open);
-                    let banner_display = result.banner.clone();
+
+                    // Detect service for live output (before moving result into channel)
+                    let service_display = if is_open {
+                        result.banner.as_deref()
+                            .and_then(|b| crate::service_detection::identify(b, target_to_scan.port))
+                            .and_then(|info| info.version.or_else(|| Some(info.name.to_string())))
+                    } else {
+                        None
+                    };
+
                     results_sender_clone.send((target_to_scan.clone(), result, scan_type.protocol().to_string())).unwrap();
 
                     if is_open {
-                        let msg = match &banner_display {
-                            Some(b) => format!("Host: {}, Port: {}/{}, Status: Open, Banner: {}", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol(), b),
-                            None => format!("Host: {}, Port: {}/{}, Status: Open", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol()),
+                        let msg = match &service_display {
+                            Some(svc) => format!("Open: {}:{}/{} ({})", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol(), svc),
+                            None => format!("Open: {}:{}/{}", &target_to_scan.ip, &target_to_scan.port, scan_type.protocol()),
                         };
                         ui_clone.print_progress_bar(msg);
                     }

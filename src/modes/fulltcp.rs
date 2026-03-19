@@ -77,11 +77,41 @@ async fn grab_banner(stream: &mut TcpStream, target: &Target) -> Option<String> 
     match result {
         Ok(Ok(n)) if n > 0 => {
             let raw = String::from_utf8_lossy(&buf[..n]).to_string();
-            // Return the full banner (needed for multi-line regex matching,
-            // e.g. HTTP Server header). Trim trailing whitespace/nulls.
             let trimmed = raw.trim_end_matches(|c: char| c == '\0' || c.is_ascii_whitespace());
-            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+            if trimmed.is_empty() { None } else { Some(clean_banner(trimmed)) }
         }
         _ => None,
     }
+}
+
+/// Clean a raw banner for storage: keep useful header lines,
+/// strip HTML body and binary garbage, limit length.
+fn clean_banner(raw: &str) -> String {
+    // For HTTP: keep status line + important headers, drop body
+    if raw.starts_with("HTTP/") {
+        let mut lines = Vec::new();
+        for line in raw.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                break; // End of headers
+            }
+            // Keep status line and useful headers
+            if lines.is_empty()
+                || trimmed.starts_with("Server:")
+                || trimmed.starts_with("X-Powered-By:")
+            {
+                lines.push(trimmed.to_string());
+            }
+        }
+        return lines.join("\n");
+    }
+
+    // For non-HTTP: first line only, filter non-printable chars
+    let first_line = raw.lines().next().unwrap_or(raw);
+    let cleaned: String = first_line
+        .chars()
+        .filter(|c| !c.is_control() || *c == '\t')
+        .take(128)
+        .collect();
+    cleaned.trim().to_string()
 }
