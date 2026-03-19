@@ -87,11 +87,6 @@ fn render_loop(inner: Arc<ProgressBarInner>) {
     loop {
         std::thread::sleep(Duration::from_millis(DRAW_INTERVAL_MS));
 
-        let msgs: Vec<String> = {
-            let mut q = inner.messages.lock().unwrap();
-            if q.is_empty() { Vec::new() } else { q.drain(..).collect() }
-        };
-
         let stopped = inner.stopped.load(Ordering::SeqCst);
         let current = inner.current.load(Ordering::Relaxed);
 
@@ -99,17 +94,23 @@ fn render_loop(inner: Arc<ProgressBarInner>) {
         let mut err = stderr().lock();
         let visible = inner.visible.load(Ordering::SeqCst);
 
-        if !msgs.is_empty() && was_visible {
-            let _ = write!(err, "\r\x1b[2K");
-        }
-        for msg in &msgs {
-            let _ = writeln!(err, "{}", msg);
-        }
-
         if visible {
+            // Drain and print queued messages only when visible
+            let msgs: Vec<String> = {
+                let mut q = inner.messages.lock().unwrap();
+                if q.is_empty() { Vec::new() } else { q.drain(..).collect() }
+            };
+            if !msgs.is_empty() {
+                let _ = write!(err, "\r\x1b[2K");
+            }
+            for msg in &msgs {
+                let _ = writeln!(err, "{}", msg);
+            }
             write_bar(&mut err, current, inner.total);
             was_visible = true;
         } else if was_visible {
+            // Transition to hidden — clear bar line, stop all output.
+            // Messages stay queued until visible again.
             let _ = write!(err, "\r\x1b[2K");
             was_visible = false;
         }
