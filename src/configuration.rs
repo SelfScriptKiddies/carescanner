@@ -140,6 +140,9 @@ pub struct Config {
     #[arg(long, help_heading = "Nmap options", help = "Run nmap on discovered open ports for service detection")]
     pub nmap: bool,
 
+    #[arg(long, help_heading = "Nmap options", help = "Path to nmap binary", default_value = "nmap")]
+    pub nmap_path: String,
+
     #[arg(last = true, help_heading = "Nmap options", help = "Arguments passed to nmap (separated by --). Implies --nmap. Default: -sV -sC")]
     pub nmap_args: Vec<String>,
 }

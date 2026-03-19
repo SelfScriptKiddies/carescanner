@@ -17,6 +17,7 @@ pub struct FileConfig {
     pub adaptive: Option<bool>,
     pub shuffle_ports: Option<bool>,
     pub ping: Option<bool>,
+    pub nmap_path: Option<String>,
     pub nmap_args: Option<Vec<String>>,
 }
 

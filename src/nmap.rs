@@ -7,7 +7,7 @@ const MAX_PARALLEL_NMAP: usize = 4;
 
 /// Run nmap on discovered open ports for service/script detection.
 /// Spawns up to MAX_PARALLEL_NMAP processes concurrently.
-pub fn run_on_results(state: &AppState, nmap_args: &[String]) {
+pub fn run_on_results(state: &AppState, nmap_args: &[String], nmap_path: &str) {
     let results = state.get_results();
 
     // Collect hosts with open ports
@@ -39,9 +39,9 @@ pub fn run_on_results(state: &AppState, nmap_args: &[String]) {
 
         // Spawn all in chunk
         for (host, port_arg) in chunk {
-            println!("Starting: nmap {} -p {} {}", nmap_args.join(" "), port_arg, host);
+            println!("Starting: {} {} -p {} {}", nmap_path, nmap_args.join(" "), port_arg, host);
 
-            match Command::new("nmap")
+            match Command::new(nmap_path)
                 .args(nmap_args)
                 .arg("-p")
                 .arg(port_arg)
@@ -51,7 +51,7 @@ pub fn run_on_results(state: &AppState, nmap_args: &[String]) {
                 .spawn()
             {
                 Ok(child) => children.push((host.clone(), child)),
-                Err(e) => eprintln!("Failed to spawn nmap for {}: {} (is nmap installed?)", host, e),
+                Err(e) => eprintln!("Failed to spawn '{}' for {}: {}", nmap_path, host, e),
             }
         }
 

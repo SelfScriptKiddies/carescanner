@@ -89,6 +89,7 @@ pub async fn run(mut config: Config) {
     if !config.adaptive { config.adaptive = file_cfg.adaptive.unwrap_or(false); }
     if !config.shuffle_ports { config.shuffle_ports = file_cfg.shuffle_ports.unwrap_or(false); }
     if !config.ping { config.ping = file_cfg.ping.unwrap_or(false); }
+    if config.nmap_path == "nmap" { if let Some(p) = file_cfg.nmap_path { config.nmap_path = p; } }
     if config.nmap_args.is_empty() { config.nmap_args = file_cfg.nmap_args.unwrap_or_default(); }
 
     let modes: Vec<ScanType> = config.scan_type.iter().cloned().map(|scan_type| ScanType::build(scan_type, &config)).collect::<Vec<_>>();
@@ -322,7 +323,7 @@ pub async fn start_mass_scan(
             } else {
                 config.nmap_args.clone()
             };
-            nmap::run_on_results(&state, &nmap_args);
+            nmap::run_on_results(&state, &nmap_args, &config.nmap_path);
         }
     }
 }
