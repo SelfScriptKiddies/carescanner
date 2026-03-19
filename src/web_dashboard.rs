@@ -57,11 +57,12 @@ setInterval(refresh, 3000);
 
 /// Start the web dashboard on the given port. Runs in the background.
 pub fn spawn_dashboard(
+    host: &str,
     port: u16,
     app_state_manager: Arc<AppStateManager>,
 ) {
+    let addr = format!("{}:{}", host, port);
     tokio::spawn(async move {
-        let addr = format!("127.0.0.1:{}", port);
         let listener = match TcpListener::bind(&addr).await {
             Ok(l) => l,
             Err(e) => {

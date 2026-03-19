@@ -148,6 +148,9 @@ pub struct Config {
     #[arg(long, help_heading = "Output options", help = "Start web dashboard on given port (e.g. --dashboard 8899)", value_name = "PORT")]
     pub dashboard: Option<u16>,
 
+    #[arg(long, help_heading = "Output options", help = "Dashboard bind address", default_value = "127.0.0.1")]
+    pub dashboard_host: String,
+
     // Nmap integration
     #[arg(long, help_heading = "Nmap options", help = "Run nmap on discovered open ports for service detection")]
     pub nmap: bool,
