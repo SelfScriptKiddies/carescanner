@@ -2,6 +2,7 @@
 pub mod fulltcp;
 pub mod sockstcp;
 pub mod udp;
+pub mod ping;
 
 use async_trait::async_trait;
 use crate::configuration::Config;
@@ -17,17 +18,35 @@ pub struct Target {
 pub enum PortStatus {
     Open,
     Filtered,
-    Closed
+    Closed,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScanResult {
+    pub status: PortStatus,
+    pub banner: Option<String>,
+}
+
+impl ScanResult {
+    pub fn open(banner: Option<String>) -> Self {
+        Self { status: PortStatus::Open, banner }
+    }
+    pub fn closed() -> Self {
+        Self { status: PortStatus::Closed, banner: None }
+    }
+    pub fn filtered() -> Self {
+        Self { status: PortStatus::Filtered, banner: None }
+    }
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
-pub enum ScanTypeName { 
+pub enum ScanTypeName {
     // Syn,
     Tcp,
     // Fin,
     // Ping,
     Udp,
-    // Socks5Tcp,
+    Socks5Tcp,
 }
 
 #[async_trait]
@@ -35,7 +54,7 @@ pub enum ScanTypeName {
 pub trait ScanTypeTrait: Send + Sync + Sized {
     fn name(&self) -> &str;
     fn protocol(&self) -> &str;
-    async fn scan(&self, target: &Target) -> PortStatus;
+    async fn scan(&self, target: &Target) -> ScanResult;
 }
 
 #[enum_dispatch(ScanTypeTrait)]
@@ -48,9 +67,9 @@ pub enum ScanType {
 impl ScanType {
     pub fn build(scan_type: ScanTypeName, config: &Config) -> Self {
         match scan_type {
-            ScanTypeName::Tcp => ScanType::Tcp(fulltcp::TcpScan::new(&config)),
-            ScanTypeName::Udp => ScanType::Udp(udp::UdpScan::new(&config)),
-            _ => unimplemented!("Unimplemented scan type"),
+            ScanTypeName::Tcp => ScanType::Tcp(fulltcp::TcpScan::new(config)),
+            ScanTypeName::Udp => ScanType::Udp(udp::UdpScan::new(config)),
+            ScanTypeName::Socks5Tcp => ScanType::Sockstcp(sockstcp::Socks5TcpScan::new(config)),
         }
     }
 }

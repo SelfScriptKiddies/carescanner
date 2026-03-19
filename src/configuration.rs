@@ -1,6 +1,7 @@
 mod target_parsing;
 mod port_parsing;
 mod proxy;
+pub mod top_ports;
 
 
 pub use target_parsing::TargetList;
@@ -52,7 +53,7 @@ pub enum PortItem {
     Range(u16, u16)
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Config {
     #[arg(short, long, default_value = "info", help_heading = "Logging options", help = "Logging level")]
@@ -65,8 +66,14 @@ pub struct Config {
     #[arg(short, long, help_heading = "Scan options", alias = "port", help = "Ports to scan (e.g., 80,443, 22-25, file:ports.txt), comma-separated, or from a file", value_name = "PORTS_LIST", default_value = "1-65535")]
     pub ports: PortList,
 
+    #[arg(long, help_heading = "Scan options", help = "Scan only the top N most common ports (from nmap)", value_name = "N")]
+    pub top_ports: Option<usize>,
+
     #[arg(long, help_heading = "Scan options", help = "Shuffle ports", value_name = "SHUFFLE_PORTS", default_value = "false")]
     pub shuffle_ports: bool,
+
+    #[arg(long, help_heading = "Scan options", help = "Ping hosts before scanning (skip dead hosts)")]
+    pub ping: bool,
 
     #[arg(long, help_heading = "Scan options", help = "socks5 proxies to use for the scan. Order of connecting it will be as in argument. Separate by comma (e.g., socks5://localhost:9050, socks5://192.168.1.1:9050)", value_name = "PROXY", value_parser = proxy::parse_proxy_input)]
     pub proxies: Option<ProxyList>,
@@ -76,6 +83,9 @@ pub struct Config {
 
     #[arg(short='x', long, help_heading = "Scan options", help = "Don't start a new scan, resume from a previous scan", value_name = "FILE_RESUME_FROM")]
     pub resume_from: Option<String>,
+
+    #[arg(long, help_heading = "Scan options", help = "Grab service banners from open ports (adds latency)")]
+    pub banner: bool,
 
     #[arg(long, help_heading = "Scan options", help = "Scan strategy", value_name = "SCAN_STRATEGY", default_value = "round-robin")]
     pub scan_strategy: ScanStrategy,
@@ -118,4 +128,11 @@ pub struct Config {
 
     #[arg(short='c', long, help_heading = "Output options", help = "Show closed ports")]
     pub show_closed_ports: bool,
+
+    // Nmap integration
+    #[arg(long, help_heading = "Nmap options", help = "Run nmap on discovered open ports for service detection")]
+    pub nmap: bool,
+
+    #[arg(last = true, help_heading = "Nmap options", help = "Arguments passed to nmap (separated by --). Implies --nmap. Default: -sV -sC")]
+    pub nmap_args: Vec<String>,
 }
