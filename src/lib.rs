@@ -234,7 +234,7 @@ pub async fn start_mass_scan(
 
     // Start web dashboard if requested
     if let Some(port) = config.dashboard {
-        web_dashboard::spawn_dashboard(&config.dashboard_host, port, Arc::clone(&app_state_manager));
+        web_dashboard::spawn_dashboard(&config.dashboard_host, port, number_of_targets as u64, Arc::clone(&app_state_manager));
     }
 
     // Setup pause controller and CTRL+C handler

@@ -11,46 +11,136 @@ const HTML_PAGE: &str = r#"<!DOCTYPE html>
 <meta charset="utf-8">
 <title>Carescanner Dashboard</title>
 <style>
-  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; margin: 2em; }
-  h1 { color: #0f3460; }
-  h1 { color: #00d2ff; }
+  * { box-sizing: border-box; }
+  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; margin: 0; padding: 2em; }
+  h1 { color: #00d2ff; margin-top: 0; }
+  .stats { display: flex; gap: 2em; margin: 1em 0; flex-wrap: wrap; }
+  .stat-card { background: #16213e; padding: 1em 1.5em; border-radius: 8px; min-width: 140px; }
+  .stat-card .value { font-size: 2em; font-weight: bold; }
+  .stat-card .label { color: #888; font-size: 0.85em; margin-top: 4px; }
+  .stat-card.open .value { color: #00ff88; }
+  .stat-card.hosts .value { color: #00d2ff; }
+  .stat-card.closed .value { color: #ff4444; }
+  .stat-card.scanned .value { color: #ffaa00; }
+  .stat-card.progress .value { color: #cc88ff; }
+  .controls { margin: 1em 0; display: flex; gap: 1em; align-items: center; flex-wrap: wrap; }
+  .controls label { color: #888; }
+  .controls input, .controls select {
+    background: #16213e; color: #e0e0e0; border: 1px solid #333;
+    padding: 6px 10px; font-family: monospace; border-radius: 4px;
+  }
   table { border-collapse: collapse; width: 100%; margin-top: 1em; }
   th, td { text-align: left; padding: 6px 12px; border-bottom: 1px solid #333; }
-  th { color: #00d2ff; }
+  th { color: #00d2ff; cursor: pointer; user-select: none; }
+  th:hover { color: #fff; }
   .open { color: #00ff88; }
   .closed { color: #ff4444; }
-  #status { color: #888; margin-top: 1em; }
-  .refresh-btn { background: #0f3460; color: #fff; border: none; padding: 8px 16px; cursor: pointer; margin-top: 1em; }
+  .banner { color: #cc88ff; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .refresh-info { color: #555; font-size: 0.8em; }
+  #no-results { color: #666; margin-top: 2em; }
 </style>
 </head>
 <body>
 <h1>Carescanner Dashboard</h1>
-<div id="status">Loading...</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="controls">
+  <label>Filter:</label>
+  <select id="state-filter">
+    <option value="open">Open only</option>
+    <option value="all">All</option>
+    <option value="closed">Closed only</option>
+  </select>
+  <input type="text" id="search" placeholder="Search host/port/service...">
+  <span class="refresh-info">Auto-refresh 3s</span>
+</div>
+
 <div id="results"></div>
+
 <script>
-async function refresh() {
+let allData = null;
+let sortCol = 'host';
+let sortAsc = true;
+
+async function fetchData() {
   try {
     const r = await fetch('/api/status');
-    const data = await r.json();
-    document.getElementById('status').innerHTML =
-      `Scanned: <b>${data.scanned}</b> | Open: <b>${data.open_count}</b> | Hosts: <b>${data.host_count}</b>` +
-      ` | <span style="color:#666">Auto-refresh 3s</span>`;
-    let html = '<table><tr><th>Host</th><th>Port</th><th>State</th><th>Service</th></tr>';
-    for (const [host, ports] of Object.entries(data.results)) {
-      for (const p of ports) {
-        const cls = p.state === 'open' ? 'open' : 'closed';
-        html += `<tr><td>${host}</td><td>${p.number}/${p.protocol}</td>` +
-                `<td class="${cls}">${p.state}</td><td>${p.banner || ''}</td></tr>`;
-      }
-    }
-    html += '</table>';
-    document.getElementById('results').innerHTML = html;
+    allData = await r.json();
+    render();
   } catch(e) {
-    document.getElementById('status').textContent = 'Error: ' + e;
+    document.getElementById('stats').textContent = 'Error: ' + e;
   }
 }
-refresh();
-setInterval(refresh, 3000);
+
+function render() {
+  if (!allData) return;
+  const d = allData;
+
+  // Stats
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card scanned"><div class="value">${d.scanned}</div><div class="label">Scanned</div></div>
+    <div class="stat-card open"><div class="value">${d.open_count}</div><div class="label">Open Ports</div></div>
+    <div class="stat-card closed"><div class="value">${d.closed_count}</div><div class="label">Closed Ports</div></div>
+    <div class="stat-card hosts"><div class="value">${d.host_count}</div><div class="label">Hosts</div></div>
+    <div class="stat-card progress"><div class="value">${d.progress_pct}%</div><div class="label">Progress</div></div>
+  `;
+
+  // Filter + search
+  const stateFilter = document.getElementById('state-filter').value;
+  const search = document.getElementById('search').value.toLowerCase();
+
+  let rows = [];
+  for (const [host, ports] of Object.entries(d.results)) {
+    for (const p of ports) {
+      if (stateFilter === 'open' && p.state !== 'open') continue;
+      if (stateFilter === 'closed' && p.state !== 'closed') continue;
+      const svc = p.banner || '';
+      const portStr = p.number + '/' + p.protocol;
+      if (search && !host.includes(search) && !portStr.includes(search) && !svc.toLowerCase().includes(search)) continue;
+      rows.push({ host, port: p.number, portStr, state: p.state, svc });
+    }
+  }
+
+  // Sort
+  rows.sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  if (rows.length === 0) {
+    document.getElementById('results').innerHTML = '<div id="no-results">No matching results</div>';
+    return;
+  }
+
+  const arrow = col => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
+  let html = `<table><tr>
+    <th onclick="setSort('host')">Host${arrow('host')}</th>
+    <th onclick="setSort('port')">Port${arrow('port')}</th>
+    <th onclick="setSort('state')">State${arrow('state')}</th>
+    <th onclick="setSort('svc')">Service${arrow('svc')}</th>
+  </tr>`;
+  for (const r of rows) {
+    const cls = r.state === 'open' ? 'open' : 'closed';
+    html += `<tr><td>${r.host}</td><td>${r.portStr}</td><td class="${cls}">${r.state}</td><td class="banner">${r.svc}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('results').innerHTML = html;
+}
+
+function setSort(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
+  render();
+}
+
+document.getElementById('state-filter').addEventListener('change', render);
+document.getElementById('search').addEventListener('input', render);
+
+fetchData();
+setInterval(fetchData, 3000);
 </script>
 </body>
 </html>"#;
@@ -59,6 +149,7 @@ setInterval(refresh, 3000);
 pub fn spawn_dashboard(
     host: &str,
     port: u16,
+    total_targets: u64,
     app_state_manager: Arc<AppStateManager>,
 ) {
     let addr = format!("{}:{}", host, port);
@@ -94,11 +185,23 @@ pub fn spawn_dashboard(
                         .flat_map(|ports| ports.iter())
                         .filter(|p| p.state == crate::appstate::PortState::Open)
                         .count();
+                    let closed_count: usize = results.values()
+                        .flat_map(|ports| ports.iter())
+                        .filter(|p| p.state == crate::appstate::PortState::Closed)
+                        .count();
+                    let scanned = open_count + closed_count;
+                    let progress_pct = if total_targets > 0 {
+                        format!("{:.1}", scanned as f64 / total_targets as f64 * 100.0)
+                    } else {
+                        "0.0".to_string()
+                    };
                     let json = format!(
-                        r#"{{"scanned":{},"open_count":{},"host_count":{},"results":{}}}"#,
-                        results.values().flat_map(|p| p.iter()).count(),
+                        r#"{{"scanned":{},"open_count":{},"closed_count":{},"host_count":{},"progress_pct":{},"results":{}}}"#,
+                        scanned,
                         open_count,
+                        closed_count,
                         results.len(),
+                        progress_pct,
                         serde_json::to_string(&results).unwrap_or_else(|_| "{}".to_string()),
                     );
                     ("200 OK", "application/json", json)
