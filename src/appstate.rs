@@ -359,10 +359,8 @@ impl AppStateManager {
         self.app_state.lock().await.clone()
     }
 
-    // Synchronous access for signal handler menu (requires multi-threaded tokio runtime)
+    /// Synchronous access (works from both tokio tasks and plain std::threads).
     pub fn get_current_state_sync(&self) -> AppState {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(self.get_current_state())
-        })
+        tokio::runtime::Handle::current().block_on(self.get_current_state())
     }
 }
