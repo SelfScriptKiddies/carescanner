@@ -2,8 +2,6 @@
 
 Blazingly fast async port scanner that **won't drop your scan report**. Configurable for careful scans or maximum speed, with built-in service detection, proxy support, and a live web dashboard.
 
-Think of it as a love child of [rustscan](https://github.com/RustScan/RustScan) and [nmap](https://nmap.org/) — fast discovery with service identification, all in a single static binary.
-
 ## Quick Start
 
 ```bash
@@ -65,7 +63,7 @@ carescanner -t 10.0.0.1 -p 22,80,443 -q --output - -f json | jq .
 
 ### Pre-built binaries
 
-Download from [Releases](https://github.com/YOUR_USERNAME/carescanner/releases):
+Download from [Releases](https://github.com/SelfScriptKiddies/carescanner/releases):
 
 | Platform | Binary |
 |---|---|
