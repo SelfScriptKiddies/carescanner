@@ -65,6 +65,7 @@ struct TermController {
     pause_controller: PauseController,
     app_state_manager: Arc<AppStateManager>,
     config: Arc<Config>,
+    rt_handle: tokio::runtime::Handle,
     total: u64,
     current: u64,
     state: TermState,
@@ -84,11 +85,13 @@ pub fn spawn_term_controller(
     let show_bar = !config.disable_progress_bar && !config.disable_all;
     let show_banner = !config.disable_banner && !config.disable_all;
 
+    let rt_handle = tokio::runtime::Handle::current();
     let mut controller = TermController {
         rx,
         pause_controller,
         app_state_manager,
         config,
+        rt_handle,
         total: 0,
         current: 0,
         state: TermState::Scanning,
@@ -245,9 +248,7 @@ impl TermController {
     }
 
     fn get_app_state(&self) -> crate::appstate::AppState {
-        // Safe from std::thread: use the tokio runtime handle
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(self.app_state_manager.get_current_state())
+        self.rt_handle.block_on(self.app_state_manager.get_current_state())
     }
 
     fn draw_bar(&self) {
